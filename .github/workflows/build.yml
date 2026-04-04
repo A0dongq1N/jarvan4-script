@@ -15,17 +15,17 @@ on:
 
 jobs:
   test-and-build:
-    runs-on: ubuntu-latest
-    # ⚠️ 必须与 Worker 部署镜像保持相同 Go 版本，否则 plugin.Open 版本不匹配
-    container:
-      image: golang:1.25-bookworm
+    runs-on: self-hosted
+    # 直接在 self-hosted runner 上编译，Go 版本与 Worker 运行环境保持一致
+    # 无需 Docker container，runner 本机已有匹配版本的 Go
 
     env:
-      MASTER_URL: ${{ secrets.MASTER_URL }}         # e.g. https://master.example.com
+      # self-hosted runner 与 Master 同机，直接用 localhost
+      MASTER_URL: ${{ secrets.MASTER_URL || 'http://localhost:8090' }}
       COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
       COS_SECRET_KEY: ${{ secrets.COS_SECRET_KEY }}
-      COS_BUCKET: ${{ secrets.COS_BUCKET }}         # e.g. jarvan4-scripts-1257748620
-      COS_REGION: ${{ secrets.COS_REGION }}         # e.g. ap-guangzhou
+      COS_BUCKET: ${{ secrets.COS_BUCKET }}
+      COS_REGION: ${{ secrets.COS_REGION }}
 
     steps:
       - uses: actions/checkout@v4
