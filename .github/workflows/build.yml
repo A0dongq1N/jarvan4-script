@@ -1,0 +1,140 @@
+name: Build & Publish Scripts
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'scripts/**'
+      - 'go.mod'
+      - 'go.sum'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: '触发原因（如：SDK v0.2.0 升级后全量重编译）'
+        required: false
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    # ⚠️ 必须与 Worker 部署镜像保持相同 Go 版本，否则 plugin.Open 版本不匹配
+    container:
+      image: golang:1.25-bookworm
+
+    env:
+      MASTER_URL: ${{ secrets.MASTER_URL }}         # e.g. https://master.example.com
+      COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
+      COS_SECRET_KEY: ${{ secrets.COS_SECRET_KEY }}
+      COS_BUCKET: ${{ secrets.COS_BUCKET }}         # e.g. jarvan4-scripts-1257748620
+      COS_REGION: ${{ secrets.COS_REGION }}         # e.g. ap-guangzhou
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Vet
+        run: go vet -tags plugin ./...
+
+      - name: Test
+        run: go test -tags plugin ./... -timeout 60s -count=1 -v
+
+      - name: Detect changed scripts
+        id: changed
+        run: |
+          # 检测本次 push 改动的脚本目录
+          # workflow_dispatch 时全量重编译
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            CHANGED=$(ls scripts/)
+          else
+            CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'scripts/**' \
+              | grep '^scripts/' \
+              | cut -d'/' -f2 \
+              | sort -u)
+          fi
+          echo "scripts=$CHANGED" >> $GITHUB_OUTPUT
+          echo "Changed scripts: $CHANGED"
+
+      - name: Build plugins
+        run: |
+          mkdir -p dist
+          COMMIT_HASH="${GITHUB_SHA}"
+          CHANGED_SCRIPTS="${{ steps.changed.outputs.scripts }}"
+
+          for name in $CHANGED_SCRIPTS; do
+            dir="scripts/${name}"
+            if [ ! -d "$dir" ]; then
+              echo "⚠️  目录 $dir 不存在，跳过"
+              continue
+            fi
+            echo "🔨 编译 $name ..."
+            mkdir -p "dist/${name}"
+            go build -tags plugin -buildmode=plugin \
+              -o "dist/${name}/${COMMIT_HASH}.so" \
+              "./${dir}"
+            echo "✓ dist/${name}/${COMMIT_HASH}.so"
+          done
+
+      - name: Upload to COS & Notify Master
+        run: |
+          COMMIT_HASH="${GITHUB_SHA}"
+          COMMIT_MSG=$(git log -1 --pretty=format:'%s')
+          AUTHOR=$(git log -1 --pretty=format:'%an')
+          CHANGED_SCRIPTS="${{ steps.changed.outputs.scripts }}"
+
+          # 安装腾讯云 CLI
+          pip install coscmd -q
+
+          coscmd config \
+            -a "$COS_SECRET_ID" \
+            -s "$COS_SECRET_KEY" \
+            -b "$COS_BUCKET" \
+            -r "$COS_REGION"
+
+          for name in $CHANGED_SCRIPTS; do
+            SO_FILE="dist/${name}/${COMMIT_HASH}.so"
+            if [ ! -f "$SO_FILE" ]; then
+              echo "⚠️  $SO_FILE 不存在，跳过上传"
+              continue
+            fi
+
+            # 上传 .so 到 COS
+            COS_KEY="scripts/${name}/${COMMIT_HASH}.so"
+            echo "⬆️  上传 $SO_FILE → cos://${COS_BUCKET}/${COS_KEY}"
+            coscmd upload "$SO_FILE" "$COS_KEY"
+
+            ARTIFACT_URL="https://${COS_BUCKET}.cos.${COS_REGION}.myqcloud.com/${COS_KEY}"
+
+            # 通知 Master 新版本可用
+            echo "📡 通知 Master: name=$name commitHash=${COMMIT_HASH:0:12}"
+            HTTP_CODE=$(curl -s -o /tmp/publish_resp.json -w "%{http_code}" \
+              -X POST "${MASTER_URL}/api/internal/scripts/publish" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"name\": \"${name}\",
+                \"commitHash\": \"${COMMIT_HASH}\",
+                \"artifactUrl\": \"${COS_KEY}\",
+                \"commitMsg\": \"${COMMIT_MSG}\",
+                \"author\": \"${AUTHOR}\"
+              }")
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              RESP_CODE=$(python3 -c "import json,sys; print(json.load(open('/tmp/publish_resp.json'))['code'])")
+              if [ "$RESP_CODE" = "0" ]; then
+                echo "✓ Master 已更新脚本 $name"
+              else
+                echo "✗ Master 返回业务错误: $(cat /tmp/publish_resp.json)"
+                exit 1
+              fi
+            else
+              echo "✗ Master 通知失败，HTTP $HTTP_CODE: $(cat /tmp/publish_resp.json)"
+              exit 1
+            fi
+          done

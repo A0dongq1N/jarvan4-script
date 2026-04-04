@@ -1,3 +1,5 @@
+//go:build plugin
+
 // 压测脚本：HTTP GET 接口压测示例
 // 目标接口：httpbin.org/get（公开测试接口，无需鉴权）
 package main
