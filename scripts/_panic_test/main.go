@@ -5,7 +5,7 @@
 package main
 
 import (
-	"github.com/Aodongq1n/jarvan4-platform/sdk/spec"
+	"github.com/Aodongq1n/jarvan4-platform/spec"
 )
 
 // Script 导出符号(Worker 通过 plugin.Lookup("Script") 获取)

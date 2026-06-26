@@ -43,8 +43,19 @@ jobs:
       - name: Vet
         run: go vet -tags plugin ./...
 
-      - name: Test
-        run: go test -tags plugin ./... -timeout 60s -count=1 -v
+      # 编译所有脚本(模拟 CI: 即使没有改动也保证每个脚本都能编出 .so)
+      # 替代旧的 `go test -tags plugin ./...` —— 本项目铁律:不写单测,禁 mock
+      # 脚本正确性通过下游 jarvan4-platform 的 e2e(对真实 target 服务压测)验证
+      - name: Build all scripts (sanity check)
+        run: |
+          mkdir -p /tmp/jarvan4-script-build
+          for d in scripts/*/; do
+            [ -f "$d/main.go" ] || continue
+            name=$(basename "$d")
+            echo "==> building $name"
+            go build -tags plugin -buildmode=plugin \
+              -o "/tmp/jarvan4-script-build/${name}.so" "./$d"
+          done
 
       - name: Detect changed scripts
         id: changed

@@ -7,8 +7,8 @@ package main
 import (
 	"fmt"
 
-	sdkhttp "github.com/Aodongq1n/jarvan4-platform/sdk/http"
-	"github.com/Aodongq1n/jarvan4-platform/sdk/spec"
+	sdkhttp "stress-scripts/sdk/http"
+	"github.com/Aodongq1n/jarvan4-platform/spec"
 )
 
 // Script 导出符号，Worker 通过 plugin.Lookup("Script") 获取
