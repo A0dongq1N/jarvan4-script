@@ -27,18 +27,17 @@ jobs:
       COS_BUCKET: ${{ secrets.COS_BUCKET }}
       COS_REGION: ${{ secrets.COS_REGION }}
       # 私有仓库不走公共 proxy，直接从 GitHub 拉
-      GOPRIVATE: "github.com/A0dongq1n/*"
-      # 兜底：把 git@github.com: 重定向到 https://（CI 默认只有 https 凭证）
+      GOPRIVATE: "github.com/A0dongq1N/*"
       GIT_TERMINAL_PROMPT: "0"
 
     steps:
       - uses: actions/checkout@v4
 
-      # 配置 git 凭证：用 GitHub Token 访问私有仓库 jarvan4-platform
+      # 配置 git 凭证：用 PAT 访问私有依赖仓库 jarvan4-platform
+      # GITHUB_TOKEN 只能访问当前仓库，跨私有仓库需要 PAT
       - name: Configure git for private modules
         run: |
-          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "git@github.com:"
-          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ secrets.PRIVATE_PAT }}@github.com/".insteadOf "https://github.com/"
 
       - name: Cache Go modules
         uses: actions/cache@v4
