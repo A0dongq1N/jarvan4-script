@@ -1,9 +1,9 @@
-module stress-scripts
+module github.com/A0dongq1N/jarvan4-script
 
 go 1.25.1
 
 require (
-	github.com/Aodongq1n/jarvan4-platform v0.1.0
+	github.com/A0dongq1N/jarvan4-platform v0.1.0
 	github.com/IBM/sarama v1.50.3
 	github.com/gorilla/websocket v1.5.3
 	github.com/redis/go-redis/v9 v9.18.0

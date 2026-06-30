@@ -1,7 +1,7 @@
 // Package check 提供 spec.Checker 接口的标准实现，由 Worker 注入到 RunContext。
 package check
 
-import "github.com/Aodongq1n/jarvan4-platform/spec"
+import "github.com/A0dongq1N/jarvan4-platform/spec"
 
 // Checker 实现 spec.Checker 接口。
 type Checker struct{}

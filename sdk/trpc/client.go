@@ -31,7 +31,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Aodongq1n/jarvan4-platform/spec"
+	"github.com/A0dongq1N/jarvan4-platform/spec"
 )
 
 // Client tRPC over HTTP 客户端。

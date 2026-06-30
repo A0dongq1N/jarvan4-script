@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Aodongq1n/jarvan4-platform/spec"
+	"github.com/A0dongq1N/jarvan4-platform/spec"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
