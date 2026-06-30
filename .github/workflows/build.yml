@@ -133,7 +133,9 @@ jobs:
                 \"commitHash\": \"${COMMIT_HASH}\",
                 \"artifactUrl\": \"${COS_KEY}\",
                 \"commitMsg\": \"${COMMIT_MSG}\",
-                \"author\": \"${AUTHOR}\"
+                \"author\": \"${AUTHOR}\",
+                \"sourceRepo\": \"${{ github.server_url }}/${{ github.repository }}\",
+                \"sourcePath\": \"scripts/${name}/main.go\"
               }")
 
             if [ "$HTTP_CODE" = "200" ]; then
