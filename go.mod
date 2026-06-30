@@ -3,7 +3,7 @@ module stress-scripts
 go 1.25.1
 
 require (
-	github.com/Aodongq1n/jarvan4-platform v0.0.0
+	github.com/Aodongq1n/jarvan4-platform v0.1.0
 	github.com/IBM/sarama v1.50.3
 	github.com/gorilla/websocket v1.5.3
 	github.com/redis/go-redis/v9 v9.18.0
@@ -32,5 +32,3 @@ require (
 	golang.org/x/text v0.38.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260615183401-62b3387ff324 // indirect
 )
-
-replace github.com/Aodongq1n/jarvan4-platform => ../jarvan4-platform
