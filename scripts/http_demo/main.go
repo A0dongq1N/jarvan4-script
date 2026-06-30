@@ -34,6 +34,7 @@ func (s *HttpDemoScript) Default(ctx *spec.RunContext) error {
 		return err
 	}
 
+	
 	ctx.Check.That(res).Status(200).RTLt(2000)
 	return nil
 }

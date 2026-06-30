@@ -69,6 +69,7 @@ func (s *HttpLoginScript) Default(ctx *spec.RunContext) error {
 			return fmt.Errorf("登录响应中未找到 token")
 		}
 		ctx.Vars.Set("token", token)
+		
 		ctx.Log.Debug("VU[%d] 登录成功，token 已缓存", ctx.VUId)
 	}
 
