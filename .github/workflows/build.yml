@@ -127,14 +127,15 @@ jobs:
               continue
             fi
 
-            # 上传 .so 到 COS
-            COS_KEY="scripts/${name}/${COMMIT_HASH}.so"
-            echo "⬆️  上传 $SO_FILE → cos://${COS_BUCKET}/${COS_KEY}"
-            coscmd upload "$SO_FILE" "$COS_KEY"
+            # 上传 .so 到 COS（版本化文件名 + 固定 latest 文件名）
+            COS_KEY_VERSIONED="scripts/${name}/${COMMIT_HASH}.so"
+            COS_KEY_LATEST="scripts/${name}/${name}.so"
+            echo "⬆️  上传 $SO_FILE → cos://${COS_BUCKET}/${COS_KEY_VERSIONED}"
+            coscmd upload "$SO_FILE" "$COS_KEY_VERSIONED"
+            echo "⬆️  上传 $SO_FILE → cos://${COS_BUCKET}/${COS_KEY_LATEST} (latest)"
+            coscmd upload "$SO_FILE" "$COS_KEY_LATEST"
 
-            ARTIFACT_URL="https://${COS_BUCKET}.cos.${COS_REGION}.myqcloud.com/${COS_KEY}"
-
-            # 通知 Master 新版本可用
+            # 通知 Master 新版本可用（artifactUrl 用固定 latest 路径）
             echo "📡 通知 Master: name=$name commitHash=${COMMIT_HASH:0:12}"
             HTTP_CODE=$(curl -s -o /tmp/publish_resp.json -w "%{http_code}" \
               -X POST "${MASTER_URL}/api/internal/scripts/publish" \
@@ -142,7 +143,7 @@ jobs:
               -d "{
                 \"name\": \"${name}\",
                 \"commitHash\": \"${COMMIT_HASH}\",
-                \"artifactUrl\": \"${COS_KEY}\",
+                \"artifactUrl\": \"${COS_KEY_LATEST}\",
                 \"commitMsg\": \"${COMMIT_MSG}\",
                 \"author\": \"${AUTHOR}\",
                 \"sourceRepo\": \"${{ github.server_url }}/${{ github.repository }}\",
