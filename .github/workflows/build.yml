@@ -46,7 +46,11 @@ jobs:
           GOPRIVATE: "github.com/A0dongq1N/*"
 
       - name: Download dependencies
-        run: go mod download
+        run: |
+          echo "GOPROXY=$GOPROXY"
+          echo "GOPRIVATE=$GOPRIVATE"
+          cat ~/.netrc | head -1
+          go mod download -x 2>&1 | head -20
         env:
           GOPROXY: "direct"
           GOPRIVATE: "github.com/A0dongq1N/*"
