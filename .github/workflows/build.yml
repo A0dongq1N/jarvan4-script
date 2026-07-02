@@ -70,14 +70,21 @@ jobs:
         id: changed
         run: |
           # 检测本次 push 改动的脚本目录
-          # workflow_dispatch 时全量重编译
+          # workflow_dispatch 或 go.mod/go.sum 变化时全量重编译（SDK 升级需要全量重编译）
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             CHANGED=$(ls scripts/)
           else
-            CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'scripts/**' \
-              | grep '^scripts/' \
-              | cut -d'/' -f2 \
-              | sort -u)
+            # 检查 go.mod/go.sum 是否变化
+            DEPS_CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'go.mod' 'go.sum' | head -1)
+            if [ -n "$DEPS_CHANGED" ]; then
+              echo "go.mod/go.sum changed, full rebuild"
+              CHANGED=$(ls scripts/)
+            else
+              CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'scripts/**' \
+                | grep '^scripts/' \
+                | cut -d'/' -f2 \
+                | sort -u)
+            fi
           fi
           echo "scripts=$CHANGED" >> $GITHUB_OUTPUT
           echo "Changed scripts: $CHANGED"
