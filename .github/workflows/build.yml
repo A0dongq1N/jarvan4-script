@@ -35,32 +35,28 @@ jobs:
       - uses: actions/checkout@v4
 
       # 配置 git 凭证：用 PAT 访问私有依赖仓库 jarvan4-platform
-      # 用 netrc 方式（比 insteadOf 更可靠）
       - name: Configure git for private modules
         run: |
           echo "machine github.com login x-access-token password ${PRIVATE_PAT}" > ~/.netrc
           chmod 600 ~/.netrc
-          # 覆盖全局 GOPROXY（runner 机器上配了公司内部 proxy，会拦截 GitHub 私有仓库）
-          go env -w GOPROXY=direct
-          go env -w GOPRIVATE=github.com/A0dongq1N/*
-          # 验证能否访问
           git ls-remote https://github.com/A0dongq1N/jarvan4-platform.git HEAD
         env:
           PRIVATE_PAT: ${{ secrets.PRIVATE_PAT }}
+          GOPROXY: "direct"
+          GOPRIVATE: "github.com/A0dongq1N/*"
 
       - name: Download dependencies
         run: go mod download
         env:
+          GOPROXY: "direct"
           GOPRIVATE: "github.com/A0dongq1N/*"
 
       - name: Vet
         run: go vet -tags plugin ./...
         env:
+          GOPROXY: "direct"
           GOPRIVATE: "github.com/A0dongq1N/*"
 
-      # 编译所有脚本(模拟 CI: 即使没有改动也保证每个脚本都能编出 .so)
-      # 替代旧的 `go test -tags plugin ./...` —— 本项目铁律:不写单测,禁 mock
-      # 脚本正确性通过下游 jarvan4-platform 的 e2e(对真实 target 服务压测)验证
       - name: Build all scripts (sanity check)
         run: |
           mkdir -p /tmp/jarvan4-script-build
@@ -72,6 +68,7 @@ jobs:
               -o "/tmp/jarvan4-script-build/${name}.so" "./$d"
           done
         env:
+          GOPROXY: "direct"
           GOPRIVATE: "github.com/A0dongq1N/*"
 
       - name: Detect changed scripts
