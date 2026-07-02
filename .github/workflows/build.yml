@@ -38,6 +38,13 @@ jobs:
       - name: Configure git for private modules
         run: |
           git config --global url."https://x-access-token:${{ secrets.PRIVATE_PAT }}@github.com/".insteadOf "https://github.com/"
+          echo "PAT length: ${#PRIVATE_PAT}"
+        env:
+          PRIVATE_PAT: ${{ secrets.PRIVATE_PAT }}
+
+      - name: Verify PAT can access jarvan4-platform
+        run: |
+          git ls-remote https://github.com/A0dongq1N/jarvan4-platform.git HEAD || exit 1
 
       - name: Cache Go modules
         uses: actions/cache@v4
