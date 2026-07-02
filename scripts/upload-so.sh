@@ -2,12 +2,14 @@
 # upload-so.sh — 编译 .so 并上传到 COS，通知 Master
 #
 # 用法:
-#   本地: COS_SECRET_ID=xxx COS_SECRET_KEY=xxx ./scripts/upload-so.sh
-#   CI:   环境变量已配置，直接 ./scripts/upload-so.sh
+#   首次设置环境变量（写入 ~/.bashrc 永久生效）:
+#     export COS_SECRET_ID=xxx
+#     export COS_SECRET_KEY=xxx
+#   之后直接: make upload-so 或 ./scripts/upload-so.sh
 #
 # 环境变量:
-#   COS_SECRET_ID   — 腾讯云 SecretId（必填）
-#   COS_SECRET_KEY  — 腾讯云 SecretKey（必填）
+#   COS_SECRET_ID   — 腾讯云 SecretId（必填，设置一次）
+#   COS_SECRET_KEY  — 腾讯云 SecretKey（必填，设置一次）
 #   COS_BUCKET      — COS 桶名（可选，默认 jarvan4-1257748620）
 #   COS_REGION      — COS 地域（可选，默认 ap-guangzhou）
 #   MASTER_URL      — Master 地址（可选，默认 http://localhost:8090）
