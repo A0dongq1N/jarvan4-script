@@ -30,6 +30,10 @@ jobs:
       GOPRIVATE: "github.com/A0dongq1N/*"
       GOPROXY: "direct"
       GIT_TERMINAL_PROMPT: "0"
+      # CI 进程可能 HOME 不同，显式设置 GOPATH
+      GOPATH: "/root/go"
+      GOMODCACHE: "/root/go/pkg/mod"
+      HOME: "/root"
 
     steps:
       - uses: actions/checkout@v4
@@ -44,15 +48,7 @@ jobs:
           PRIVATE_PAT: ${{ secrets.PRIVATE_PAT }}
 
       - name: Download dependencies
-        run: |
-          echo "HOME=$HOME USER=$(whoami)"
-          echo "GOENV=$(go env GOENV)"
-          cat "$(go env GOENV)" 2>/dev/null || echo "GOENV file not found"
-          echo "GOPROXY=$(go env GOPROXY)"
-          echo "GOPRIVATE=$(go env GOPRIVATE)"
-          echo "GOSUMDB=$(go env GOSUMDB)"
-          go mod download -x 2>&1 | tail -20
-          echo "exit: $?"
+        run: go mod download
 
       - name: Vet
         run: go vet -tags plugin ./...
