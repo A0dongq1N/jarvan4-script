@@ -49,6 +49,15 @@ jobs:
         env:
           PRIVATE_PAT: ${{ secrets.PRIVATE_PAT }}
 
+      # Clone jarvan4-platform main 分支，用最新代码编译 .so
+      # 保证 .so 和 worker 二进制使用相同的 jarvan4-platform 版本
+      - name: Clone jarvan4-platform (latest main)
+        run: |
+          git clone --depth 1 https://github.com/A0dongq1N/jarvan4-platform.git /tmp/jarvan4-platform
+          # 用 replace 指向本地 clone，覆盖 go.mod 里的 v0.1.0
+          go mod edit -replace github.com/A0dongq1N/jarvan4-platform=/tmp/jarvan4-platform
+          go mod tidy
+
       - name: Download dependencies
         run: go mod download
 
