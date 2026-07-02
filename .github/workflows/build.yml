@@ -37,6 +37,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # 需要 HEAD~1 做 diff 检测变更脚本
 
       # 配置 git 凭证：用 PAT 访问私有依赖仓库 jarvan4-platform
       - name: Configure git for private modules
