@@ -44,7 +44,15 @@ jobs:
           PRIVATE_PAT: ${{ secrets.PRIVATE_PAT }}
 
       - name: Download dependencies
-        run: go mod download
+        run: |
+          echo "HOME=$HOME USER=$(whoami)"
+          echo "GOENV=$(go env GOENV)"
+          cat "$(go env GOENV)" 2>/dev/null || echo "GOENV file not found"
+          echo "GOPROXY=$(go env GOPROXY)"
+          echo "GOPRIVATE=$(go env GOPRIVATE)"
+          echo "GOSUMDB=$(go env GOSUMDB)"
+          go mod download -x 2>&1 | tail -20
+          echo "exit: $?"
 
       - name: Vet
         run: go vet -tags plugin ./...
