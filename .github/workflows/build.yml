@@ -34,17 +34,16 @@ jobs:
       - uses: actions/checkout@v4
 
       # 配置 git 凭证：用 PAT 访问私有依赖仓库 jarvan4-platform
-      # GITHUB_TOKEN 只能访问当前仓库，跨私有仓库需要 PAT
+      # 用 netrc 方式（比 insteadOf 更可靠）
       - name: Configure git for private modules
         run: |
-          git config --global url."https://x-access-token:${{ secrets.PRIVATE_PAT }}@github.com/".insteadOf "https://github.com/"
+          echo "machine github.com login x-access-token password ${PRIVATE_PAT}" > ~/.netrc
+          chmod 600 ~/.netrc
           echo "PAT length: ${#PRIVATE_PAT}"
+          # 验证能否访问
+          git ls-remote https://github.com/A0dongq1N/jarvan4-platform.git HEAD
         env:
           PRIVATE_PAT: ${{ secrets.PRIVATE_PAT }}
-
-      - name: Verify PAT can access jarvan4-platform
-        run: |
-          git ls-remote https://github.com/A0dongq1N/jarvan4-platform.git HEAD || exit 1
 
       - name: Cache Go modules
         uses: actions/cache@v4
