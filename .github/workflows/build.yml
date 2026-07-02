@@ -39,6 +39,10 @@ jobs:
         run: |
           echo "machine github.com login x-access-token password ${PRIVATE_PAT}" > ~/.netrc
           chmod 600 ~/.netrc
+          # 覆盖 go env（runner 机器上可能配了公司内部 proxy）
+          go env -w GOPROXY=direct
+          go env -w GOPRIVATE=github.com/A0dongq1N/*
+          go env -w GONOSUMCHECK=1
           git ls-remote https://github.com/A0dongq1N/jarvan4-platform.git HEAD
         env:
           PRIVATE_PAT: ${{ secrets.PRIVATE_PAT }}
