@@ -59,6 +59,8 @@ jobs:
           for d in scripts/*/; do
             [ -f "$d/main.go" ] || continue
             name=$(basename "$d")
+            # 跳过下划线前缀目录（_target/_test/_panic_test 等非正式脚本）
+            [[ "$name" == _* ]] && continue
             echo "==> building $name"
             go build -tags plugin -buildmode=plugin \
               -o "/tmp/jarvan4-script-build/${name}.so" "./$d"
