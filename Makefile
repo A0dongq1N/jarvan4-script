@@ -19,7 +19,7 @@ build-so: ## 编译所有正式脚本 .so（跳过下划线前缀目录）
 	@echo "✓ 编译完成: $(SO_DIR)/"
 
 upload-so: ## 编译 + 上传到 COS + 通知 Master（需先设置 COS_SECRET_ID/COS_SECRET_KEY 环境变量）
-	./scripts/upload-so.sh
+	go run ./cmd/uploader/
 
 publish-so: upload-so ## 同 upload-so（别名）
 
