@@ -42,24 +42,12 @@ jobs:
           git ls-remote https://github.com/A0dongq1N/jarvan4-platform.git HEAD
         env:
           PRIVATE_PAT: ${{ secrets.PRIVATE_PAT }}
-          GOPROXY: "direct"
-          GOPRIVATE: "github.com/A0dongq1N/*"
 
       - name: Download dependencies
-        run: |
-          echo "GOPROXY=$GOPROXY"
-          echo "GOPRIVATE=$GOPRIVATE"
-          cat ~/.netrc | head -1
-          go mod download -x 2>&1 | head -20
-        env:
-          GOPROXY: "direct"
-          GOPRIVATE: "github.com/A0dongq1N/*"
+        run: go mod download
 
       - name: Vet
         run: go vet -tags plugin ./...
-        env:
-          GOPROXY: "direct"
-          GOPRIVATE: "github.com/A0dongq1N/*"
 
       - name: Build all scripts (sanity check)
         run: |
@@ -71,9 +59,6 @@ jobs:
             go build -tags plugin -buildmode=plugin \
               -o "/tmp/jarvan4-script-build/${name}.so" "./$d"
           done
-        env:
-          GOPROXY: "direct"
-          GOPRIVATE: "github.com/A0dongq1N/*"
 
       - name: Detect changed scripts
         id: changed
