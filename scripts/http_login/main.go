@@ -93,3 +93,4 @@ func (s *HttpLoginScript) Teardown(ctx *spec.RunContext, data interface{}) error
 	ctx.Log.Info("Teardown: 压测完成")
 	return nil
 }
+
