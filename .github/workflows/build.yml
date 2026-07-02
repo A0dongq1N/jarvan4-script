@@ -54,9 +54,13 @@ jobs:
 
       - name: Download dependencies
         run: go mod download
+        env:
+          GOPRIVATE: "github.com/A0dongq1N/*"
 
       - name: Vet
         run: go vet -tags plugin ./...
+        env:
+          GOPRIVATE: "github.com/A0dongq1N/*"
 
       # 编译所有脚本(模拟 CI: 即使没有改动也保证每个脚本都能编出 .so)
       # 替代旧的 `go test -tags plugin ./...` —— 本项目铁律:不写单测,禁 mock
@@ -71,6 +75,8 @@ jobs:
             go build -tags plugin -buildmode=plugin \
               -o "/tmp/jarvan4-script-build/${name}.so" "./$d"
           done
+        env:
+          GOPRIVATE: "github.com/A0dongq1N/*"
 
       - name: Detect changed scripts
         id: changed
@@ -107,6 +113,8 @@ jobs:
               "./${dir}"
             echo "✓ dist/${name}/${COMMIT_HASH}.so"
           done
+        env:
+          GOPRIVATE: "github.com/A0dongq1N/*"
 
       - name: Upload to COS & Notify Master
         run: |
