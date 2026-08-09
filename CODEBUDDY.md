@@ -2,7 +2,7 @@
 
 压测脚本仓库。每个脚本编译为 Go plugin（`.so`），由 Worker 动态加载执行。
 
-模块路径：`stress-scripts`（独立 Git 仓库）
+模块路径：`github.com/A0dongq1N/jarvan4-script`（独立 Git 仓库）
 
 ## 脚本编写规范
 
@@ -10,7 +10,7 @@
 
 1. **`package main`**，必须导出 `var Script spec.ScriptEntry`
 2. **第一行必须是** `//go:build plugin`
-3. **只允许 import**：标准库 + `github.com/Aodongq1n/jarvan4-platform/sdk`
+3. **只允许 import**：标准库 + `github.com/A0dongq1N/jarvan4-platform/sdk`
 4. **禁止**：启动独立 goroutine、`os.Exit()`、直接读写文件
 5. **脚本名**（子目录名）一旦确定不可修改（与平台 `script.name` 绑定）
 
@@ -49,8 +49,8 @@ package main
 
 import (
     "fmt"
-    sdkhttp "github.com/Aodongq1n/jarvan4-platform/sdk/http"
-    "github.com/Aodongq1n/jarvan4-platform/sdk/spec"
+    sdkhttp "github.com/A0dongq1N/jarvan4-platform/sdk/http"
+    "github.com/A0dongq1N/jarvan4-platform/sdk/spec"
 )
 
 var Script spec.ScriptEntry = &MyScript{}
@@ -80,20 +80,28 @@ func (s *MyScript) Teardown(ctx *spec.RunContext, data interface{}) error {
 }
 ```
 
-## 编译
+## 编译 & 上传
+
+**统一用 Makefile target，不要手敲 go build 命令：**
 
 ```bash
-# 单个脚本
-go build -buildmode=plugin -o dist/http_demo.so ./scripts/http_demo/
-
-# 所有脚本
-for d in scripts/*/; do
-    name=$(basename "$d")
-    go build -buildmode=plugin -o "dist/${name}.so" "./scripts/${name}/"
-done
+make build-so    # 编译所有正式脚本 .so（跳过下划线前缀目录）
+make upload-so   # 编译 + 上传到 COS + 通知 Master（需先设置 COS_SECRET_ID/COS_SECRET_KEY）
+make local-so    # 仅编译不上传（本地调试用，DB artifactUrl 设为本地路径）
+make env-check   # 检查 COS 环境变量是否已设置
+make help        # 查看所有 target
 ```
 
-**编译环境一致性要求**：CI 必须使用与 Worker 部署相同的 Docker 镜像编译，否则 `plugin.Open` 会报版本不匹配错误。
+首次配置 COS 密钥（写入 ~/.bashrc 永久生效）：
+```bash
+echo 'export COS_SECRET_ID=xxx' >> ~/.bashrc
+echo 'export COS_SECRET_KEY=xxx' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Makefile 位置：`jarvan4-script/Makefile`。
+
+**编译环境一致性要求**：CI 必须使用与 Worker 部署相同的 jarvan4-platform 版本编译，否则 `plugin.Open` 会报版本不匹配错误。本地开发用 `make upload-so`（用本地 go.work 的 jarvan4-platform），CI 用 clone main 分支。
 
 ## 目录结构
 

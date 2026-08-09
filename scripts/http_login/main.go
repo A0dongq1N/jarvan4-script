@@ -17,6 +17,9 @@ import (
 // Script 导出符号，Worker 通过 plugin.Lookup("Script") 获取。
 var Script spec.ScriptEntry = &HttpLoginScript{}
 
+// PluginABI 插件 ABI 版本，须与 Worker 内 spec.PluginABIVersion 一致
+var PluginABI = spec.PluginABIVersion
+
 type HttpLoginScript struct{}
 
 type setupData struct {

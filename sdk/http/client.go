@@ -77,15 +77,18 @@ func (c *Client) Do(req *spec.HTTPRequest) (*spec.HTTPResponse, error) {
 	if label == "" {
 		label = normalizePath(req.URL)
 	}
+	if c.ctx != nil {
+		c.ctx.LastAPILabel = label
+	}
 
 	if c.ctx != nil && c.ctx.Recorder != nil {
 		var recordErr error
 		if err != nil {
 			recordErr = err
 		} else if resp != nil && resp.StatusCode >= 400 {
-			recordErr = fmt.Errorf("http %d", resp.StatusCode)
+			recordErr = spec.BuildHTTPError(resp.StatusCode, resp.Body, label)
 		}
-		c.ctx.Recorder.Record(label, duration, recordErr)
+		c.ctx.Recorder.Record(label, c.ctx.ScriptName, duration, recordErr)
 		if resp != nil && resp.IsSkipped() {
 			c.ctx.Recorder.Skip()
 		}

@@ -1,9 +1,10 @@
 // Package main 本地 .so 编译上传工具
 // 用法: go run ./cmd/uploader/
-// 环境变量: COS_SECRET_ID, COS_SECRET_KEY, COS_BUCKET, COS_REGION, MASTER_URL
+// COS 密钥优先从环境变量读，其次从 /root/.cos.conf（coscmd 配置）读
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/A0dongq1N/jarvan4-platform/shared/cos"
+	"github.com/A0dongq1N/jarvan4-platform/spec"
 )
 
 func main() {
@@ -30,18 +32,44 @@ func main() {
 		os.Exit(0)
 	}
 
-	// 3. 创建 COS client
+	// 3. 获取 COS 配置（优先环境变量，其次 coscmd 配置文件）
 	secretID := os.Getenv("COS_SECRET_ID")
 	secretKey := os.Getenv("COS_SECRET_KEY")
-	bucket := envOr("COS_BUCKET", "jarvan4-1257748620")
-	region := envOr("COS_REGION", "ap-guangzhou")
+	bucket := envOr("COS_BUCKET", "")
+	region := envOr("COS_REGION", "")
 	masterURL := envOr("MASTER_URL", "http://localhost:8090")
 
+	// 环境变量没设全，从 coscmd 配置读
+	if secretID == "" || secretKey == "" || bucket == "" || region == "" {
+		cosConf := readCoscmdConfig("/root/.cos.conf")
+		if secretID == "" {
+			secretID = cosConf["secret_id"]
+		}
+		if secretKey == "" {
+			secretKey = cosConf["secret_key"]
+		}
+		if bucket == "" {
+			bucket = cosConf["bucket"]
+		}
+		if region == "" {
+			region = cosConf["region"]
+		}
+	}
+
 	if secretID == "" || secretKey == "" {
-		fmt.Fprintln(os.Stderr, "Error: COS_SECRET_ID 和 COS_SECRET_KEY 环境变量未设置")
-		fmt.Fprintln(os.Stderr, "首次配置: echo 'export COS_SECRET_ID=xxx' >> ~/.bashrc && source ~/.bashrc")
+		fmt.Fprintln(os.Stderr, "Error: COS 密钥未找到")
+		fmt.Fprintln(os.Stderr, "设置方式: export COS_SECRET_ID=xxx && export COS_SECRET_KEY=xxx")
+		fmt.Fprintln(os.Stderr, "或用 coscmd 配置: coscmd config -a xxx -s xxx -b xxx -r xxx")
 		os.Exit(1)
 	}
+	if bucket == "" {
+		bucket = "jarvan4-1257748620"
+	}
+	if region == "" {
+		region = "ap-guangzhou"
+	}
+
+	fmt.Printf("COS: bucket=%s region=%s secretID=%s...\n", bucket, region, secretID[:8])
 
 	cosClient, err := cos.NewClient(cos.Config{
 		SecretID:  secretID,
@@ -86,6 +114,7 @@ func main() {
 	}
 
 	fmt.Println("\n✓ 全部完成")
+	fmt.Printf("Plugin ABI: v%d（须与 Worker spec.PluginABIVersion 一致）\n", spec.PluginABIVersion)
 }
 
 func buildSO() error {
@@ -174,4 +203,31 @@ func envOr(key, defaultVal string) string {
 		return v
 	}
 	return defaultVal
+}
+
+// readCoscmdConfig 从 coscmd 配置文件读 COS 配置
+// 格式是 INI: [common]\nsecret_id = xxx\nsecret_key = xxx
+func readCoscmdConfig(path string) map[string]string {
+	result := make(map[string]string)
+	f, err := os.Open(path)
+	if err != nil {
+		return result
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "[") || line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+		result[key] = val
+	}
+	return result
 }

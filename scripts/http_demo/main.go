@@ -15,6 +15,9 @@ import (
 // 必须声明为接口类型，否则 plugin.Lookup 返回 **HttpDemoScript 导致类型断言失败
 var Script spec.ScriptEntry = &HttpDemoScript{}
 
+// PluginABI 插件 ABI 版本，须与 Worker 内 spec.PluginABIVersion 一致
+var PluginABI = spec.PluginABIVersion
+
 type HttpDemoScript struct{}
 
 func (s *HttpDemoScript) Setup(ctx *spec.RunContext) (interface{}, error) {

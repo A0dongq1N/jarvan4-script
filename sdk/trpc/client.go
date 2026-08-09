@@ -182,6 +182,6 @@ func (c *Client) CallRaw(ctx *spec.RunContext, serviceName, method string, req i
 
 func record(ctx *spec.RunContext, label string, duration time.Duration, err error) {
 	if ctx != nil && ctx.Recorder != nil {
-		ctx.Recorder.Record(label, duration, err)
+		ctx.Recorder.Record(label, ctx.ScriptName, duration, err)
 	}
 }
