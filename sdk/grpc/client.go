@@ -123,7 +123,7 @@ func Invoke(ctx *spec.RunContext, conn *Conn, method string, req interface{}, op
 	duration := time.Since(start)
 
 	if ctx != nil && ctx.Recorder != nil {
-		ctx.Recorder.Record(method, duration, err)
+		ctx.Recorder.Record(method, ctx.ScriptName, duration, err)
 	}
 
 	return resp, err

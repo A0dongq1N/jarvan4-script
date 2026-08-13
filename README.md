@@ -5,10 +5,10 @@
 ## 模块路径
 
 ```
-module stress-scripts
+module github.com/A0dongq1N/jarvan4-script
 ```
 
-依赖 `github.com/Aodongq1n/jarvan4-platform/sdk`（通过 `replace` 指向本地 `../jarvan4-platform/sdk`，发布版本应改为正式 tag）。
+依赖 `github.com/A0dongq1N/jarvan4-platform`（契约在 `spec/`）。本地开发由仓库根目录 `go.work` 指向 `../jarvan4-platform`，不必在本模块 `go.mod` 里写 `replace`。协议 SDK 在本仓库 `sdk/`（如 `github.com/A0dongq1N/jarvan4-script/sdk/http`）。
 
 ## 目录结构
 
@@ -19,10 +19,8 @@ jarvan4-script/
 │   │   └── main.go          # 入口(必须导出 var Script spec.ScriptEntry)
 │   ├── http_login/          # 示例:登录 + 查询流程压测
 │   │   └── main.go
-│   ├── _target/             # 本地 e2e 目标服务(stdlib HTTP server)
-│   │   └── main.go
-│   └── _test/               # 本地 e2e 脚本
-│       └── e2e_test.sh
+│   └── _target/             # 本地联调目标服务(stdlib HTTP server)
+│       └── main.go
 ├── go.mod
 ├── go.sum
 ├── .github/workflows/
@@ -46,8 +44,8 @@ cp -r scripts/http_demo scripts/my_new_script
 package main
 
 import (
-    "github.com/Aodongq1n/jarvan4-platform/sdk/spec"
-    // 其他 import
+    "github.com/A0dongq1N/jarvan4-platform/spec"
+    sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
 )
 
 var Script spec.ScriptEntry = &MyScript{}
@@ -86,27 +84,23 @@ func (s *MyScript) Teardown(ctx *spec.RunContext, data interface{}) error {
 - **必须** `//go:build plugin` tag(防止误编译进 main)
 - **必须** 导出 `var Script spec.ScriptEntry`(Worker 通过 `plugin.Lookup("Script")` 获取)
 - **禁止** 启动独立 goroutine / `os.Exit()`(由引擎调度)
-- **只允许** import 标准库 + `github.com/Aodongq1n/jarvan4-platform/sdk/...`
+- **只允许** import 标准库 + `github.com/A0dongq1N/jarvan4-platform/spec` + `github.com/A0dongq1N/jarvan4-script/sdk/...`
 - **环境变量** 通过 `ctx.Vars.Env("KEY")` 读取(从 Master 平台下发)
 - **HTTP 请求** 用 `ctx.HTTP.Get/Post(...)`,内部自动调用 Recorder 上报指标
 - **断言** 用 `ctx.Check.That(res).Status(200).BodyContains("...")`,失败计入 fail
 - **指标自动记录**: HTTP 4xx/5xx、网络错误都会自动计入 fail,**不要** 重复 `totalReqs++`
 
-### 3. 验证脚本能跑通(本地 e2e)
+### 3. 验证脚本能跑通
 
 ```bash
 # 1. 启动目标服务
 cd scripts/_target && go run . &
 
-# 2. 编译你的脚本
-go build -buildmode=plugin -o /tmp/my.so ./scripts/my_new_script
+# 2. 编译脚本（本地调试用，不上传 COS）
+make local-so
 
-# 3. 跑压测
-cd ../../jarvan4-platform
-go run ./cmd/runner -so /tmp/my.so -vu 10 -duration 10s -env BASE_URL=http://localhost:8888
-
-# 4. 跑完整 e2e(启 target + 跑 runner + 检查输出)
-bash scripts/_test/e2e_test.sh http_demo
+# 3. 在 Master 管理台创建任务，脚本选刚编译的版本，BASE_URL 指向 http://localhost:8888
+#    Worker 会加载 .so 并对 _target 发压
 ```
 
 ### 4. 提交 + 推送
@@ -126,7 +120,7 @@ CI 会自动:
 
 ## SDK 接口速查
 
-完整 SDK 见 [jarvan4-platform/sdk/spec/](../jarvan4-platform/sdk/spec/)。最常用:
+契约见 [jarvan4-platform/spec/](../jarvan4-platform/spec/)，协议客户端见本仓库 `sdk/`。最常用:
 
 ```go
 type ScriptEntry interface {
@@ -154,15 +148,15 @@ type RunContext struct {
 
 本项目**不写单元测试、不用 mock**(见 jarvan4-platform/CODEBUDDY.md 「测试策略」铁律)。
 
-脚本正确性通过**真实 e2e** 验证:
+脚本正确性通过**真实发压**验证:
 - **CI**: `go vet` + 编译所有脚本(确保都能产出 `.so`)
-- **本地**: `scripts/_test/e2e_test.sh` 启 `_target` + 跑 `cmd/runner` 跑真实压测
+- **本地**: 启 `_target`，`make local-so`，在 Master 管理台创建任务由 Worker 加载执行
 - **生产**: 脚本被 Worker 实际加载,对真实被压测服务发起流量
 
 如果发现脚本有 bug,正确的做法是:
 1. 启本地 `_target` 复现
-2. 用 `cmd/runner` 跑,观察指标和日志
-3. 修复后重跑 e2e
+2. 创建短时任务，观察 Worker 日志和管理台看板
+3. 修复后重新编译并再跑一遍
 4. 提交 + 推送
 
 **禁止** 写 mock HTTP server 测试脚本(本项目已删除 `testkit/` 包作为教训)。
@@ -179,11 +173,7 @@ A: ❌ 不提交。CI 编译后上传到 COS,Worker 拉取。
 A: 升级 SDK 版本 → 全量重编译所有脚本(在 GitHub Actions 页面 "Run workflow" 触发 `workflow_dispatch`)。
 
 ### Q: 如何调试脚本?
-A: 在本地用 `cmd/runner` 单步跑:
-```bash
-go run ./cmd/runner -so /tmp/my.so -vu 1 -duration 5s -env BASE_URL=http://localhost:8888
-```
-runner 会打印每 VU 的 panic / 错误 / 状态。
+A: 编译后通过 Master 创建短时任务（VU=1、duration 几秒），看 Worker 日志和管理台实时看板里的 panic / 错误 / 状态。
 
 ### Q: 脚本抛 panic 怎么办?
 A: SDK 内部会 recover 算作 fail。但应避免 panic,改用显式 error 返回:

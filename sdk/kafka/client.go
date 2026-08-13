@@ -91,7 +91,7 @@ func Produce(ctx *spec.RunContext, p *Producer, topic string, msg []byte, opts .
 	duration := time.Since(start)
 
 	if ctx != nil && ctx.Recorder != nil {
-		ctx.Recorder.Record("kafka.Produce", duration, err)
+		ctx.Recorder.Record("kafka.Produce", ctx.ScriptName, duration, err)
 	}
 	return err
 }

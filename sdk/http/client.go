@@ -92,6 +92,9 @@ func (c *Client) Do(req *spec.HTTPRequest) (*spec.HTTPResponse, error) {
 		if resp != nil && resp.IsSkipped() {
 			c.ctx.Recorder.Skip()
 		}
+		if recordErr != nil {
+			return resp, recordErr
+		}
 	}
 
 	return resp, err

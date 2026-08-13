@@ -137,6 +137,6 @@ func Expire(ctx *spec.RunContext, pool *Pool, key string, ttl time.Duration) err
 
 func record(ctx *spec.RunContext, label string, duration time.Duration, err error) {
 	if ctx != nil && ctx.Recorder != nil {
-		ctx.Recorder.Record(label, duration, err)
+		ctx.Recorder.Record(label, ctx.ScriptName, duration, err)
 	}
 }

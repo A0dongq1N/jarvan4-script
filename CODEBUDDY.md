@@ -112,12 +112,26 @@ jarvan4-script/
 │   │   └── main.go
 │   ├── http_login/       # 登录 + 查询流程示例
 │   │   └── main.go
+│   ├── redis_demo/       # Redis SET + GET 读写压测
+│   │   └── main.go
 │   ├── _panic_test/      # panic 测试脚本（下划线前缀不发布）
-│   ├── _target/          # 本地测试目标服务
-│   └── _test/             # 测试辅助
+│   └── _target/          # 本地测试目标服务
 ├── go.mod
 └── README.md
 ```
+
+### redis_demo 环境变量
+
+| 变量 | 必填 | 默认值 | 说明 |
+|------|------|--------|------|
+| `REDIS_ADDR` | 是 | - | `host:port`，如 `127.0.0.1:6379` |
+| `REDIS_PASSWORD` | 否 | 空 | Redis 认证密码 |
+| `REDIS_DB` | 否 | `0` | 数据库编号 |
+| `KEY_PREFIX` | 否 | `jarvan4:stress:` | key 前缀，避免污染业务数据 |
+| `TTL_SECONDS` | 否 | `300` | SET 过期秒数 |
+| `VALUE_SIZE` | 否 | `64` | value 字节长度 |
+
+每轮迭代：`SET {prefix}{vuId}:{iteration}` → `GET` 校验返回值。指标维度：`redis.SET`、`redis.GET`。
 
 ## CI 流程
 

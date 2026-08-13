@@ -59,7 +59,7 @@ func Send(ctx *spec.RunContext, conn *Conn, data []byte) error {
 	duration := time.Since(start)
 
 	if ctx != nil && ctx.Recorder != nil {
-		ctx.Recorder.Record("tcp.Send", duration, err)
+		ctx.Recorder.Record("tcp.Send", ctx.ScriptName, duration, err)
 	}
 	return err
 }
@@ -72,7 +72,7 @@ func Recv(ctx *spec.RunContext, conn *Conn, n int) ([]byte, error) {
 	duration := time.Since(start)
 
 	if ctx != nil && ctx.Recorder != nil {
-		ctx.Recorder.Record("tcp.Recv", duration, err)
+		ctx.Recorder.Record("tcp.Recv", ctx.ScriptName, duration, err)
 	}
 	if err != nil {
 		return nil, err

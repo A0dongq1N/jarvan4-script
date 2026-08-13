@@ -1,10 +1,9 @@
 //go:build ignore
 
-// Package main 启动一个最小的 HTTP target 服务,供本地 e2e 压测。
+// Package main 启动一个最小的 HTTP target 服务,供本地压测脚本联调。
 // 真实部署时被压测的是用户的业务服务,这个 _target 仅用于:
 //   1. 本地开发:验证压测脚本能跑通
-//   2. CI e2e:scripts/_test/e2e_test.sh 拉起本服务,跑 cmd/runner
-//   3. 教学:作为 SDK HTTP API 的最小可用示例
+//   2. 教学:作为 SDK HTTP API 的最小可用示例
 //
 // 端点:
 //   GET  /get       → 200 + echo query 参数(JSON)

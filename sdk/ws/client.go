@@ -58,7 +58,7 @@ func Send(ctx *spec.RunContext, conn *Conn, msg []byte) error {
 	duration := time.Since(start)
 
 	if ctx != nil && ctx.Recorder != nil {
-		ctx.Recorder.Record("ws.Send", duration, err)
+		ctx.Recorder.Record("ws.Send", ctx.ScriptName, duration, err)
 	}
 	return err
 }
@@ -70,7 +70,7 @@ func Recv(ctx *spec.RunContext, conn *Conn) ([]byte, error) {
 	duration := time.Since(start)
 
 	if ctx != nil && ctx.Recorder != nil {
-		ctx.Recorder.Record("ws.Recv", duration, err)
+		ctx.Recorder.Record("ws.Recv", ctx.ScriptName, duration, err)
 	}
 	return msg, err
 }
@@ -82,7 +82,7 @@ func SendBinary(ctx *spec.RunContext, conn *Conn, msg []byte) error {
 	duration := time.Since(start)
 
 	if ctx != nil && ctx.Recorder != nil {
-		ctx.Recorder.Record("ws.Send", duration, err)
+		ctx.Recorder.Record("ws.Send", ctx.ScriptName, duration, err)
 	}
 	return err
 }
