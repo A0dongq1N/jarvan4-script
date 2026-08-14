@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/A0dongq1N/jarvan4-platform/spec"
+	sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
 )
 
 // Script 导出符号，Worker 通过 plugin.Lookup("Script") 获取。
@@ -22,6 +23,7 @@ var PluginABI = spec.PluginABIVersion
 type HttpLoginScript struct{}
 
 type setupData struct {
+	HTTP    *sdkhttp.Client
 	BaseURL string
 }
 
@@ -31,7 +33,10 @@ func (s *HttpLoginScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 		return nil, fmt.Errorf("BASE_URL 未配置")
 	}
 	ctx.Log.Info("Setup: 目标地址 %s", baseURL)
-	return &setupData{BaseURL: baseURL}, nil
+	return &setupData{
+		HTTP:    sdkhttp.New(ctx),
+		BaseURL: baseURL,
+	}, nil
 }
 
 func (s *HttpLoginScript) Default(ctx *spec.RunContext) error {
@@ -48,7 +53,8 @@ func (s *HttpLoginScript) Default(ctx *spec.RunContext) error {
 			password = "password123"
 		}
 
-		resp, err := ctx.HTTP.Post(
+		resp, err := sd.HTTP.Post(
+			ctx,
 			sd.BaseURL+"/api/auth/login",
 			map[string]string{"username": username, "password": password},
 			spec.WithName("/api/auth/login"),
@@ -71,14 +77,15 @@ func (s *HttpLoginScript) Default(ctx *spec.RunContext) error {
 			return fmt.Errorf("登录响应中未找到 token")
 		}
 		ctx.Vars.Set("token", token)
-		
+
 		ctx.Log.Debug("VU[%d] 登录成功，token 已缓存", ctx.VUId)
 	}
 
 	token := ctx.Vars.GetString("token")
 
 	// 查询当前用户信息
-	meResp, err := ctx.HTTP.Get(
+	meResp, err := sd.HTTP.Get(
+		ctx,
 		sd.BaseURL+"/api/auth/me",
 		spec.WithHeader("Authorization", "Bearer "+token),
 		spec.WithName("/api/auth/me"),
@@ -92,9 +99,9 @@ func (s *HttpLoginScript) Default(ctx *spec.RunContext) error {
 }
 
 func (s *HttpLoginScript) Teardown(ctx *spec.RunContext, data interface{}) error {
+	if sd, ok := data.(*setupData); ok && sd.HTTP != nil {
+		sd.HTTP.Close()
+	}
 	ctx.Log.Info("Teardown: 压测完成")
 	return nil
 }
-
-
-

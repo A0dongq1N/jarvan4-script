@@ -11,11 +11,20 @@ import (
 	"strconv"
 
 	"github.com/A0dongq1N/jarvan4-platform/spec"
+	sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
 )
 
 var Script spec.ScriptEntry = &HttpErrorScript{}
 
+// PluginABI 插件 ABI 版本，须与 Worker 内 spec.PluginABIVersion 一致
+var PluginABI = spec.PluginABIVersion
+
 type HttpErrorScript struct{}
+
+type setupData struct {
+	HTTP    *sdkhttp.Client
+	BaseURL string
+}
 
 func (s *HttpErrorScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 	baseURL := ctx.Vars.Env("BASE_URL")
@@ -24,15 +33,18 @@ func (s *HttpErrorScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 	}
 	rate := parseErrorRate(ctx.Vars.Env("ERROR_RATE"))
 	ctx.Log.Info("Setup 完成，目标 %s，错误率 %.0f%%", baseURL, rate*100)
-	return nil, nil
+	return &setupData{
+		HTTP:    sdkhttp.New(ctx),
+		BaseURL: baseURL,
+	}, nil
 }
 
 func (s *HttpErrorScript) Default(ctx *spec.RunContext) error {
-	baseURL := ctx.Vars.Env("BASE_URL")
+	sd := ctx.SetupData.(*setupData)
 	rate := parseErrorRate(ctx.Vars.Env("ERROR_RATE"))
 
-	url := fmt.Sprintf("%s/api/error?rate=%s", baseURL, formatRate(rate))
-	res, err := ctx.HTTP.Get(url, spec.WithName("/api/error"))
+	url := fmt.Sprintf("%s/api/error?rate=%s", sd.BaseURL, formatRate(rate))
+	res, err := sd.HTTP.Get(ctx, url, spec.WithName("/api/error"))
 	if err != nil {
 		return err
 	}
@@ -41,6 +53,9 @@ func (s *HttpErrorScript) Default(ctx *spec.RunContext) error {
 }
 
 func (s *HttpErrorScript) Teardown(ctx *spec.RunContext, data interface{}) error {
+	if sd, ok := data.(*setupData); ok && sd.HTTP != nil {
+		sd.HTTP.Close()
+	}
 	ctx.Log.Info("Teardown 完成")
 	return nil
 }

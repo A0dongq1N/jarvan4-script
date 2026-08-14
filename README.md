@@ -44,12 +44,21 @@ cp -r scripts/http_demo scripts/my_new_script
 package main
 
 import (
+    "fmt"
+
     "github.com/A0dongq1N/jarvan4-platform/spec"
+    sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
 )
 
 var Script spec.ScriptEntry = &MyScript{}
+var PluginABI = spec.PluginABIVersion
 
 type MyScript struct{}
+
+type setupData struct {
+    HTTP    *sdkhttp.Client
+    BaseURL string
+}
 
 // Setup 压测开始前执行一次(全局,非每个 goroutine)
 // 返回值会传递给每个 VU 的 Default
@@ -58,13 +67,13 @@ func (s *MyScript) Setup(ctx *spec.RunContext) (interface{}, error) {
     if baseURL == "" {
         return nil, fmt.Errorf("BASE_URL 未配置")
     }
-    // 预加载:登录获取共享 token / 准备测试数据
-    return &setupData{Token: "..."}, nil
+    return &setupData{HTTP: sdkhttp.New(ctx), BaseURL: baseURL}, nil
 }
 
 // Default 每个 VU 每次迭代调用一次(压测核心逻辑)
 func (s *MyScript) Default(ctx *spec.RunContext) error {
-    res, err := ctx.HTTP.Get(ctx.Vars.Env("BASE_URL")+"/api/endpoint")
+    sd := ctx.SetupData.(*setupData)
+    res, err := sd.HTTP.Get(ctx, sd.BaseURL+"/api/endpoint")
     if err != nil {
         return err
     }
@@ -74,6 +83,9 @@ func (s *MyScript) Default(ctx *spec.RunContext) error {
 
 // Teardown 所有 VU 结束后执行一次
 func (s *MyScript) Teardown(ctx *spec.RunContext, data interface{}) error {
+    if sd, ok := data.(*setupData); ok && sd.HTTP != nil {
+        sd.HTTP.Close()
+    }
     return nil
 }
 ```
@@ -85,7 +97,7 @@ func (s *MyScript) Teardown(ctx *spec.RunContext, data interface{}) error {
 - **禁止** 启动独立 goroutine / `os.Exit()`(由引擎调度)
 - **只允许** import 标准库 + `github.com/A0dongq1N/jarvan4-platform/spec` + `github.com/A0dongq1N/jarvan4-script/sdk/...`
 - **环境变量** 通过 `ctx.Vars.Env("KEY")` 读取(从 Master 平台下发)
-- **HTTP 请求** 用 `ctx.HTTP.Get/Post(...)`,内部自动调用 Recorder 上报指标
+- **HTTP 请求** 用 `sdk/http`：Setup 里 `sdkhttp.New(ctx)`，Default 里 `client.Get(ctx, url, ...)`
 - **断言** 用 `ctx.Check.That(res).Status(200).BodyContains("...")`,失败计入 fail
 - **指标自动记录**: HTTP 4xx/5xx、网络错误都会自动计入 fail,**不要** 重复 `totalReqs++`
 
@@ -133,14 +145,16 @@ type RunContext struct {
     VUId      int           // 当前虚拟用户 ID(1 开始,Setup/Teardown 时为 0)
     Iteration int64         // 已完成迭代数
     WorkerID  string        // Worker 节点 ID
-    SetupData interface{}   // Setup 返回的共享数据
-    HTTP      HTTPClient    // 协议快捷入口
+    SetupData interface{}   // Setup 返回的共享数据（含 HTTP/Redis 客户端）
     Check     Checker       // 断言:Check.That(res).Status(200).RTLt(2000)
     Vars      VarStore      // 变量:Env(key) 读平台变量,Set/Get 私有变量
     Log       Logger        // 日志(上报到 Master 实时看板)
     Sleep     Sleeper       // 睡眠(可被引擎停止信号中断)
-    Recorder  MetricsRecorder // 通常 SDK 内部已用,无需手动调
+    Recorder  MetricsRecorder // 协议 SDK 内部自动调用
 }
+
+// HTTP：sdk/http.New(ctx) → client.Get(ctx, url, spec.WithName(...))
+// Redis：sdk/redis.NewPool(ctx, addr) → redis.Get(ctx, pool, key)
 ```
 
 ## 测试策略
