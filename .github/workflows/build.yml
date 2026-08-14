@@ -100,7 +100,10 @@ jobs:
                 | sort -u)
             fi
           fi
-          echo "scripts=$CHANGED" >> $GITHUB_OUTPUT
+          # GITHUB_OUTPUT 不支持未转义多行：换行会让下一行被当成非法 output（如 Invalid format 'http_error'）
+          # 下游用 for name in $CHANGED_SCRIPTS，空格分隔即可
+          CHANGED=$(printf '%s\n' "$CHANGED" | grep -v '^$' | grep -v '^_' | tr '\n' ' ' | xargs)
+          echo "scripts=$CHANGED" >> "$GITHUB_OUTPUT"
           echo "Changed scripts: $CHANGED"
 
       - name: Build plugins
