@@ -53,6 +53,8 @@ jobs:
       # 保证 .so 和 worker 二进制使用相同的 jarvan4-platform 版本
       - name: Clone jarvan4-platform (latest main)
         run: |
+          # self-hosted runner 的 /tmp 会残留上次 clone，必须先清掉
+          rm -rf /tmp/jarvan4-platform
           git clone --depth 1 https://github.com/A0dongq1N/jarvan4-platform.git /tmp/jarvan4-platform
           # 用 replace 指向本地 clone，覆盖 go.mod 里的 v0.1.0
           go mod edit -replace github.com/A0dongq1N/jarvan4-platform=/tmp/jarvan4-platform
