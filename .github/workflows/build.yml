@@ -50,15 +50,21 @@ jobs:
         env:
           PRIVATE_PAT: ${{ secrets.PRIVATE_PAT }}
 
-      # Clone jarvan4-platform main 分支，用最新代码编译 .so
-      # 保证 .so 和 worker 二进制使用相同的 jarvan4-platform 版本
-      - name: Clone jarvan4-platform (latest main)
+      # .so 必须和本机 Worker 使用同一份 jarvan4-platform（plugin.Open 校验包版本）
+      # Worker 由本机 /data/workspace/github/jarvan4/jarvan4-platform 编译，优先用这份；
+      # GitHub main 可能落后（例如 spec.WithQuery / WithName 尚未推送），clone 后 go vet 会 undefined。
+      - name: Use jarvan4-platform (same tree as Worker)
         run: |
-          # self-hosted runner 的 /tmp 会残留上次 clone，必须先清掉
-          rm -rf /tmp/jarvan4-platform
-          git clone --depth 1 https://github.com/A0dongq1N/jarvan4-platform.git /tmp/jarvan4-platform
-          # 用 replace 指向本地 clone，覆盖 go.mod 里的 v0.1.0
-          go mod edit -replace github.com/A0dongq1N/jarvan4-platform=/tmp/jarvan4-platform
+          LOCAL_PLATFORM="/data/workspace/github/jarvan4/jarvan4-platform"
+          if [ -d "$LOCAL_PLATFORM/spec" ]; then
+            echo "Using local platform: $LOCAL_PLATFORM"
+            go mod edit -replace github.com/A0dongq1N/jarvan4-platform="$LOCAL_PLATFORM"
+          else
+            echo "Local platform not found, cloning GitHub main"
+            rm -rf /tmp/jarvan4-platform
+            git clone --depth 1 https://github.com/A0dongq1N/jarvan4-platform.git /tmp/jarvan4-platform
+            go mod edit -replace github.com/A0dongq1N/jarvan4-platform=/tmp/jarvan4-platform
+          fi
           go mod tidy
 
       - name: Download dependencies
