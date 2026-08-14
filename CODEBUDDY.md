@@ -10,7 +10,7 @@
 
 1. **`package main`**，必须导出 `var Script spec.ScriptEntry`
 2. **第一行必须是** `//go:build plugin`
-3. **只允许 import**：标准库 + `github.com/A0dongq1N/jarvan4-platform/spec` + 本仓库 `sdk/`（非 HTTP 协议）
+3. **只允许 import**：标准库 + `github.com/A0dongq1N/jarvan4-platform/spec` + 本仓库 `sdk/`（含 `sdk/http`、`sdk/redis` 等）
 4. **禁止**：启动独立 goroutine、`os.Exit()`、直接读写文件
 5. **脚本名**（子目录名）一旦确定不可修改（与平台 `script.name` 绑定）
 
@@ -33,12 +33,14 @@ type ScriptEntry interface {
 |------|------|
 | `ctx.VUId` | 当前虚拟用户编号（1 开始） |
 | `ctx.Iteration` | 本 VU 已完成迭代数 |
-| `ctx.HTTP` | HTTP 客户端，自动上报指标（`ctx.HTTP.Get/Post/...`） |
 | `ctx.Check` | 断言：`ctx.Check.That(resp).Status(200).RTLt(2000)` |
 | `ctx.Vars` | 环境变量：`ctx.Vars.Env("BASE_URL")` |
 | `ctx.Log` | 日志，输出到 Master 实时看板 |
 | `ctx.Sleep` | 睡眠，可被引擎停止信号中断 |
 | `ctx.Recorder` | 协议无关指标记录器（通常无需直接使用） |
+| `ctx.SetupData` | Setup 返回值（放共享连接池 / HTTP Client） |
+
+协议客户端不在 Context 上：HTTP 用 `sdk/http`，Redis 用 `sdk/redis`，均在 Setup 创建、经 SetupData 共享。
 
 ### 脚本示例
 
@@ -50,23 +52,30 @@ package main
 import (
     "fmt"
     "github.com/A0dongq1N/jarvan4-platform/spec"
+    sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
 )
 
 var Script spec.ScriptEntry = &MyScript{}
+var PluginABI = spec.PluginABIVersion
 
 type MyScript struct{}
+
+type setupData struct {
+    HTTP    *sdkhttp.Client
+    BaseURL string
+}
 
 func (s *MyScript) Setup(ctx *spec.RunContext) (interface{}, error) {
     baseURL := ctx.Vars.Env("BASE_URL")
     if baseURL == "" {
         return nil, fmt.Errorf("BASE_URL 环境变量未配置")
     }
-    return nil, nil
+    return &setupData{HTTP: sdkhttp.New(ctx), BaseURL: baseURL}, nil
 }
 
 func (s *MyScript) Default(ctx *spec.RunContext) error {
-    baseURL := ctx.Vars.Env("BASE_URL")
-    res, err := ctx.HTTP.Get(baseURL + "/api/health")
+    sd := ctx.SetupData.(*setupData)
+    res, err := sd.HTTP.Get(ctx, sd.BaseURL+"/api/health")
     if err != nil {
         return err
     }
@@ -75,6 +84,9 @@ func (s *MyScript) Default(ctx *spec.RunContext) error {
 }
 
 func (s *MyScript) Teardown(ctx *spec.RunContext, data interface{}) error {
+    if sd, ok := data.(*setupData); ok && sd.HTTP != nil {
+        sd.HTTP.Close()
+    }
     return nil
 }
 ```
