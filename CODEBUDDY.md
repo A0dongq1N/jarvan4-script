@@ -10,7 +10,7 @@
 
 1. **`package main`**，必须导出 `var Script spec.ScriptEntry`
 2. **第一行必须是** `//go:build plugin`
-3. **只允许 import**：标准库 + `github.com/A0dongq1N/jarvan4-platform/sdk`
+3. **只允许 import**：标准库 + `github.com/A0dongq1N/jarvan4-platform/spec` + 本仓库 `sdk/`（非 HTTP 协议）
 4. **禁止**：启动独立 goroutine、`os.Exit()`、直接读写文件
 5. **脚本名**（子目录名）一旦确定不可修改（与平台 `script.name` 绑定）
 
@@ -49,8 +49,7 @@ package main
 
 import (
     "fmt"
-    sdkhttp "github.com/A0dongq1N/jarvan4-platform/sdk/http"
-    "github.com/A0dongq1N/jarvan4-platform/sdk/spec"
+    "github.com/A0dongq1N/jarvan4-platform/spec"
 )
 
 var Script spec.ScriptEntry = &MyScript{}
@@ -131,7 +130,7 @@ jarvan4-script/
 | `TTL_SECONDS` | 否 | `300` | SET 过期秒数 |
 | `VALUE_SIZE` | 否 | `64` | value 字节长度 |
 
-每轮迭代：`SET {prefix}{vuId}:{iteration}` → `GET` 校验返回值。指标维度：`redis.SET`、`redis.GET`。
+每轮迭代：`SET {prefix}{workerId}:{vuId}:{iteration}` → `GET` 校验返回值。`workerId` 用于避免多 Worker 本地 `VUId` 撞 key。指标维度：`redis.SET`、`redis.GET`。
 
 ## CI 流程
 

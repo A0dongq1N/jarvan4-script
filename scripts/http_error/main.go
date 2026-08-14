@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"strconv"
 
-	sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
 	"github.com/A0dongq1N/jarvan4-platform/spec"
 )
 
@@ -33,7 +32,7 @@ func (s *HttpErrorScript) Default(ctx *spec.RunContext) error {
 	rate := parseErrorRate(ctx.Vars.Env("ERROR_RATE"))
 
 	url := fmt.Sprintf("%s/api/error?rate=%s", baseURL, formatRate(rate))
-	res, err := ctx.HTTP.Get(url, sdkhttp.WithName("/api/error"))
+	res, err := ctx.HTTP.Get(url, spec.WithName("/api/error"))
 	if err != nil {
 		return err
 	}

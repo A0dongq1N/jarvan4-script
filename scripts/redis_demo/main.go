@@ -84,7 +84,12 @@ func (s *RedisDemoScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 
 func (s *RedisDemoScript) Default(ctx *spec.RunContext) error {
 	sd := ctx.SetupData.(*setupData)
-	key := fmt.Sprintf("%s%d:%d", sd.KeyPrefix, ctx.VUId, ctx.Iteration)
+	// VUId 只在单 Worker 内从 1 递增；多 Worker 必须带上 WorkerID，否则会写同一 key。
+	workerID := ctx.WorkerID
+	if workerID == "" {
+		workerID = "local"
+	}
+	key := fmt.Sprintf("%s%s:%d:%d", sd.KeyPrefix, workerID, ctx.VUId, ctx.Iteration)
 	value := buildValue(sd.ValueSize, ctx.VUId, int(ctx.Iteration))
 
 	if err := sdkredis.Set(ctx, sd.Pool, key, value, sd.TTL); err != nil {

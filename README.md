@@ -8,7 +8,7 @@
 module github.com/A0dongq1N/jarvan4-script
 ```
 
-依赖 `github.com/A0dongq1N/jarvan4-platform`（契约在 `spec/`）。本地开发由仓库根目录 `go.work` 指向 `../jarvan4-platform`，不必在本模块 `go.mod` 里写 `replace`。协议 SDK 在本仓库 `sdk/`（如 `github.com/A0dongq1N/jarvan4-script/sdk/http`）。
+依赖 `github.com/A0dongq1N/jarvan4-platform`（契约在 `spec/`，HTTP 选项为 `spec.WithName` / `WithHeader` / `WithQuery`）。本地开发由仓库根目录 `go.work` 指向 `../jarvan4-platform`，不必在本模块 `go.mod` 里写 `replace`。其它协议 SDK 在本仓库 `sdk/`（如 `sdk/tcp`、`sdk/ws`）。
 
 ## 目录结构
 
@@ -45,7 +45,6 @@ package main
 
 import (
     "github.com/A0dongq1N/jarvan4-platform/spec"
-    sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
 )
 
 var Script spec.ScriptEntry = &MyScript{}

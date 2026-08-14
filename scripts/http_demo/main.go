@@ -7,7 +7,6 @@ package main
 import (
 	"fmt"
 
-	sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
 	"github.com/A0dongq1N/jarvan4-platform/spec"
 )
 
@@ -32,7 +31,7 @@ func (s *HttpDemoScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 func (s *HttpDemoScript) Default(ctx *spec.RunContext) error {
 	baseURL := ctx.Vars.Env("BASE_URL")
 
-	res, err := ctx.HTTP.Get(baseURL+"/get", sdkhttp.WithQuery("vu", fmt.Sprintf("%d", ctx.VUId)))
+	res, err := ctx.HTTP.Get(baseURL+"/get", spec.WithQuery("vu", fmt.Sprintf("%d", ctx.VUId)))
 	if err != nil {
 		return err
 	}

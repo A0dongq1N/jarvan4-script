@@ -10,7 +10,6 @@ package main
 import (
 	"fmt"
 
-	sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
 	"github.com/A0dongq1N/jarvan4-platform/spec"
 )
 
@@ -52,7 +51,7 @@ func (s *HttpLoginScript) Default(ctx *spec.RunContext) error {
 		resp, err := ctx.HTTP.Post(
 			sd.BaseURL+"/api/auth/login",
 			map[string]string{"username": username, "password": password},
-			sdkhttp.WithName("/api/auth/login"),
+			spec.WithName("/api/auth/login"),
 		)
 		if err != nil {
 			return err
@@ -81,8 +80,8 @@ func (s *HttpLoginScript) Default(ctx *spec.RunContext) error {
 	// 查询当前用户信息
 	meResp, err := ctx.HTTP.Get(
 		sd.BaseURL+"/api/auth/me",
-		sdkhttp.WithHeader("Authorization", "Bearer "+token),
-		sdkhttp.WithName("/api/auth/me"),
+		spec.WithHeader("Authorization", "Bearer "+token),
+		spec.WithName("/api/auth/me"),
 	)
 	if err != nil {
 		return err
