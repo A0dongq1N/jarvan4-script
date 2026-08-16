@@ -1,5 +1,3 @@
-//go:build plugin
-
 // 压测脚本：Redis SET + GET 读写链路
 // 环境变量：
 //   REDIS_ADDR     Redis 地址，如 127.0.0.1:6379（必填）
@@ -15,16 +13,18 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/A0dongq1N/jarvan4-platform/scriptrun"
 	"github.com/A0dongq1N/jarvan4-platform/spec"
 	sdkredis "github.com/A0dongq1N/jarvan4-script/sdk/redis"
 	"github.com/A0dongq1N/jarvan4-script/sdk/random"
 )
 
-// Script 导出符号，Worker 通过 plugin.Lookup("Script") 获取。
-var Script spec.ScriptEntry = &RedisDemoScript{}
+func main() {
+	scriptrun.Main(&RedisDemoScript{})
+}
 
-// PluginABI 插件 ABI 版本，须与 Worker 内 spec.PluginABIVersion 一致。
-var PluginABI = spec.PluginABIVersion
+
+
 
 type RedisDemoScript struct{}
 

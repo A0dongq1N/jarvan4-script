@@ -108,7 +108,7 @@ func (s *MyScript) Teardown(ctx *spec.RunContext, data interface{}) error {
 cd scripts/_target && go run . &
 
 # 2. 编译脚本（本地调试用，不上传 COS）
-make local-so
+make local-bin
 
 # 3. 在 Master 管理台创建任务，脚本选刚编译的版本，BASE_URL 指向 http://localhost:8888
 #    Worker 会加载 .so 并对 _target 发压
@@ -163,7 +163,7 @@ type RunContext struct {
 
 脚本正确性通过**真实发压**验证:
 - **CI**: `go vet` + 编译所有脚本(确保都能产出 `.so`)
-- **本地**: 启 `_target`，`make local-so`，在 Master 管理台创建任务由 Worker 加载执行
+- **本地**: 启 `_target`，`make local-bin`，在 Master 管理台创建任务由 Worker 加载执行
 - **生产**: 脚本被 Worker 实际加载,对真实被压测服务发起流量
 
 如果发现脚本有 bug,正确的做法是:

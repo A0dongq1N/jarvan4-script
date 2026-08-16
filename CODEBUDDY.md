@@ -1,6 +1,6 @@
 # CODEBUDDY.md — jarvan4-script
 
-压测脚本仓库。每个脚本编译为 Go plugin（`.so`），由 Worker 动态加载执行。
+压测脚本仓库。每个脚本编译为**独立可执行文件**，由 Worker 下载后 exec 执行（引擎在 `scriptrun` 内）。
 
 模块路径：`github.com/A0dongq1N/jarvan4-script`（独立 Git 仓库）
 
@@ -8,9 +8,9 @@
 
 ### 必须遵守的约束
 
-1. **`package main`**，必须导出 `var Script spec.ScriptEntry`
-2. **第一行必须是** `//go:build plugin`
-3. **只允许 import**：标准库 + `github.com/A0dongq1N/jarvan4-platform/spec` + 本仓库 `sdk/`（含 `sdk/http`、`sdk/redis` 等）
+1. **`package main`**，`func main() { scriptrun.Main(&XxxScript{}) }`
+2. **实现** `spec.ScriptEntry`（Setup / Default / Teardown）
+3. **只允许 import**：标准库 + `jarvan4-platform/spec` + `jarvan4-platform/scriptrun` + 本仓库 `sdk/`
 4. **禁止**：启动独立 goroutine、`os.Exit()`、直接读写文件
 5. **脚本名**（子目录名）一旦确定不可修改（与平台 `script.name` 绑定）
 
@@ -45,18 +45,16 @@ type ScriptEntry interface {
 ### 脚本示例
 
 ```go
-//go:build plugin
-
 package main
 
 import (
     "fmt"
+    "github.com/A0dongq1N/jarvan4-platform/scriptrun"
     "github.com/A0dongq1N/jarvan4-platform/spec"
     sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
 )
 
-var Script spec.ScriptEntry = &MyScript{}
-var PluginABI = spec.PluginABIVersion
+func main() { scriptrun.Main(&MyScript{}) }
 
 type MyScript struct{}
 
@@ -96,11 +94,11 @@ func (s *MyScript) Teardown(ctx *spec.RunContext, data interface{}) error {
 **统一用 Makefile target，不要手敲 go build 命令：**
 
 ```bash
-make build-so    # 编译所有正式脚本 .so（跳过下划线前缀目录）
-make upload-so   # 编译 + 上传到 COS + 通知 Master（需先设置 COS_SECRET_ID/COS_SECRET_KEY）
-make local-so    # 仅编译不上传（本地调试用，DB artifactUrl 设为本地路径）
-make env-check   # 检查 COS 环境变量是否已设置
-make help        # 查看所有 target
+make build-bin    # 编译所有正式脚本二进制
+make upload-bin   # 编译 + 上传到 COS + 通知 Master
+make local-bin    # 仅编译不上传
+make env-check
+make help
 ```
 
 首次配置 COS 密钥（写入 ~/.bashrc 永久生效）：
@@ -112,7 +110,7 @@ source ~/.bashrc
 
 Makefile 位置：`jarvan4-script/Makefile`。
 
-**编译环境一致性要求**：CI 必须使用与 Worker 部署相同的 jarvan4-platform 版本编译，否则 `plugin.Open` 会报版本不匹配错误。本地开发用 `make upload-so`（用本地 go.work 的 jarvan4-platform），CI 用 clone main 分支。
+本地开发依赖根目录 `go.work`（含 `jarvan4-platform` 与 `jarvan4-platform/pb`）。CI clone platform 并用 replace（含 pb 子模块）。旧 `make *-so` 仍是兼容别名。
 
 ## 目录结构
 
@@ -147,8 +145,8 @@ jarvan4-script/
 ## CI 流程
 
 ```
-git push → CI 检测变更脚本 → go vet + 单测 → go build -buildmode=plugin
-→ 上传 .so 到 COS → 通知 Master 新版本可用（POST /api/internal/scripts/publish）
+git push → CI 检测变更脚本 → go vet → go build（普通二进制）
+→ 上传到 COS → 通知 Master（POST /api/internal/scripts/publish）
 ```
 
 脚本发布接口（Master 端）：
@@ -158,7 +156,7 @@ POST /api/internal/scripts/publish
   "projectId": "...",
   "name": "http_demo",
   "commitHash": "abc123",
-  "artifactUrl": "scripts/http_demo/abc123.so",
+  "artifactUrl": "scripts/http_demo/http_demo",
   "commitMsg": "...",
   "author": "..."
 }

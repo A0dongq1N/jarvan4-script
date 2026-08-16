@@ -1,5 +1,3 @@
-//go:build plugin
-
 // 压测脚本：登录 + 查询接口链路
 // 环境变量：
 //   BASE_URL   被压测服务地址，如 http://staging.example.com
@@ -10,15 +8,17 @@ package main
 import (
 	"fmt"
 
+	"github.com/A0dongq1N/jarvan4-platform/scriptrun"
 	"github.com/A0dongq1N/jarvan4-platform/spec"
 	sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
 )
 
-// Script 导出符号，Worker 通过 plugin.Lookup("Script") 获取。
-var Script spec.ScriptEntry = &HttpLoginScript{}
+func main() {
+	scriptrun.Main(&HttpLoginScript{})
+}
 
-// PluginABI 插件 ABI 版本，须与 Worker 内 spec.PluginABIVersion 一致
-var PluginABI = spec.PluginABIVersion
+
+
 
 type HttpLoginScript struct{}
 

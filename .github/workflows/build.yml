@@ -11,27 +11,22 @@ on:
   workflow_dispatch:
     inputs:
       reason:
-        description: '触发原因（如：SDK v0.2.0 升级后全量重编译）'
+        description: '触发原因（如：SDK 升级后全量重编译）'
         required: false
 
 jobs:
   test-and-build:
     runs-on: self-hosted
-    # 直接在 self-hosted runner 上编译，Go 版本与 Worker 运行环境保持一致
-    # 无需 Docker container，runner 本机已有匹配版本的 Go
 
     env:
-      # self-hosted runner 与 Master 同机，直接用 localhost
       MASTER_URL: ${{ secrets.MASTER_URL || 'http://localhost:8090' }}
       COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
       COS_SECRET_KEY: ${{ secrets.COS_SECRET_KEY }}
       COS_BUCKET: ${{ secrets.COS_BUCKET }}
       COS_REGION: ${{ secrets.COS_REGION }}
-      # 私有仓库不走公共 proxy，直接从 GitHub 拉
       GOPRIVATE: "github.com/A0dongq1N/*"
       GOPROXY: "direct"
       GIT_TERMINAL_PROMPT: "0"
-      # CI 进程可能 HOME 不同，显式设置 GOPATH
       GOPATH: "/root/go"
       GOMODCACHE: "/root/go/pkg/mod"
       HOME: "/root"
@@ -39,9 +34,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 2  # 需要 HEAD~1 做 diff 检测变更脚本
+          fetch-depth: 2
 
-      # 配置 git 凭证：用 PAT 访问私有依赖仓库 jarvan4-platform
       - name: Configure git for private modules
         run: |
           echo "machine github.com login x-access-token password ${PRIVATE_PAT}" > ~/.netrc
@@ -50,22 +44,20 @@ jobs:
         env:
           PRIVATE_PAT: ${{ secrets.PRIVATE_PAT }}
 
-      # Clone jarvan4-platform main 分支，用最新代码编译 .so
-      # 保证 .so 和 worker 二进制使用相同的 jarvan4-platform 版本
+      # 拉取 platform（含 scriptrun）；独立二进制后无需与 Worker 指纹对齐
       - name: Clone jarvan4-platform (latest main)
         run: |
-          # self-hosted runner 的 /tmp 会残留上次 clone，必须先清掉
           rm -rf /tmp/jarvan4-platform
           git clone --depth 1 https://github.com/A0dongq1N/jarvan4-platform.git /tmp/jarvan4-platform
-          # 用 replace 指向本地 clone，覆盖 go.mod 里的 v0.1.0
           go mod edit -replace github.com/A0dongq1N/jarvan4-platform=/tmp/jarvan4-platform
+          go mod edit -replace github.com/A0dongq1N/jarvan4-platform/pb=/tmp/jarvan4-platform/pb
           go mod tidy
 
       - name: Download dependencies
         run: go mod download
 
       - name: Vet
-        run: go vet -tags plugin ./...
+        run: go vet ./...
 
       - name: Build all scripts (sanity check)
         run: |
@@ -73,22 +65,17 @@ jobs:
           for d in scripts/*/; do
             [ -f "$d/main.go" ] || continue
             name=$(basename "$d")
-            # 跳过下划线前缀目录（_target/_test/_panic_test 等非正式脚本）
             [[ "$name" == _* ]] && continue
             echo "==> building $name"
-            go build -tags plugin -buildmode=plugin \
-              -o "/tmp/jarvan4-script-build/${name}.so" "./$d"
+            go build -o "/tmp/jarvan4-script-build/${name}" "./$d"
           done
 
       - name: Detect changed scripts
         id: changed
         run: |
-          # 检测本次 push 改动的脚本目录
-          # workflow_dispatch 或 go.mod/go.sum 变化时全量重编译（SDK 升级需要全量重编译）
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             CHANGED=$(ls scripts/)
           else
-            # 检查 go.mod/go.sum 是否变化
             DEPS_CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'go.mod' 'go.sum' | head -1)
             if [ -n "$DEPS_CHANGED" ]; then
               echo "go.mod/go.sum changed, full rebuild"
@@ -100,13 +87,11 @@ jobs:
                 | sort -u)
             fi
           fi
-          # GITHUB_OUTPUT 不支持未转义多行：换行会让下一行被当成非法 output（如 Invalid format 'http_error'）
-          # 下游用 for name in $CHANGED_SCRIPTS，空格分隔即可
           CHANGED=$(printf '%s\n' "$CHANGED" | grep -v '^$' | grep -v '^_' | tr '\n' ' ' | xargs)
           echo "scripts=$CHANGED" >> "$GITHUB_OUTPUT"
           echo "Changed scripts: $CHANGED"
 
-      - name: Build plugins
+      - name: Build script binaries
         run: |
           mkdir -p dist
           COMMIT_HASH="${GITHUB_SHA}"
@@ -120,13 +105,9 @@ jobs:
             fi
             echo "🔨 编译 $name ..."
             mkdir -p "dist/${name}"
-            go build -tags plugin -buildmode=plugin \
-              -o "dist/${name}/${COMMIT_HASH}.so" \
-              "./${dir}"
-            echo "✓ dist/${name}/${COMMIT_HASH}.so"
+            go build -o "dist/${name}/${COMMIT_HASH}" "./${dir}"
+            echo "✓ dist/${name}/${COMMIT_HASH}"
           done
-        env:
-          GOPRIVATE: "github.com/A0dongq1N/*"
 
       - name: Upload to COS & Notify Master
         run: |
@@ -135,9 +116,7 @@ jobs:
           AUTHOR=$(git log -1 --pretty=format:'%an')
           CHANGED_SCRIPTS="${{ steps.changed.outputs.scripts }}"
 
-          # 安装腾讯云 CLI
           pip install coscmd -q
-
           coscmd config \
             -a "$COS_SECRET_ID" \
             -s "$COS_SECRET_KEY" \
@@ -145,21 +124,19 @@ jobs:
             -r "$COS_REGION"
 
           for name in $CHANGED_SCRIPTS; do
-            SO_FILE="dist/${name}/${COMMIT_HASH}.so"
-            if [ ! -f "$SO_FILE" ]; then
-              echo "⚠️  $SO_FILE 不存在，跳过上传"
+            BIN_FILE="dist/${name}/${COMMIT_HASH}"
+            if [ ! -f "$BIN_FILE" ]; then
+              echo "⚠️  $BIN_FILE 不存在，跳过上传"
               continue
             fi
 
-            # 上传 .so 到 COS（版本化文件名 + 固定 latest 文件名）
-            COS_KEY_VERSIONED="scripts/${name}/${COMMIT_HASH}.so"
-            COS_KEY_LATEST="scripts/${name}/${name}.so"
-            echo "⬆️  上传 $SO_FILE → cos://${COS_BUCKET}/${COS_KEY_VERSIONED}"
-            coscmd upload "$SO_FILE" "$COS_KEY_VERSIONED"
-            echo "⬆️  上传 $SO_FILE → cos://${COS_BUCKET}/${COS_KEY_LATEST} (latest)"
-            coscmd upload "$SO_FILE" "$COS_KEY_LATEST"
+            COS_KEY_VERSIONED="scripts/${name}/${COMMIT_HASH}"
+            COS_KEY_LATEST="scripts/${name}/${name}"
+            echo "⬆️  上传 $BIN_FILE → cos://${COS_BUCKET}/${COS_KEY_VERSIONED}"
+            coscmd upload "$BIN_FILE" "$COS_KEY_VERSIONED"
+            echo "⬆️  上传 $BIN_FILE → cos://${COS_BUCKET}/${COS_KEY_LATEST} (latest)"
+            coscmd upload "$BIN_FILE" "$COS_KEY_LATEST"
 
-            # 通知 Master 新版本可用（artifactUrl 用固定 latest 路径）
             echo "📡 通知 Master: name=$name commitHash=${COMMIT_HASH:0:12}"
             HTTP_CODE=$(curl -s -o /tmp/publish_resp.json -w "%{http_code}" \
               -X POST "${MASTER_URL}/api/internal/scripts/publish" \

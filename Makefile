@@ -1,36 +1,37 @@
 # Makefile — jarvan4-script 开发工具集
 # 用法: make <target>  (查看所有 target: make help)
 
-SO_DIR ?= dist
+BIN_DIR ?= dist
 
 ##@ 编译 & 上传
 
-.PHONY: build-so upload-so publish-so local-so
+.PHONY: build-bin upload-bin publish-bin local-bin
 
-build-so: ## 编译所有正式脚本 .so（跳过下划线前缀目录）
-	@mkdir -p $(SO_DIR)
+build-bin: ## 编译所有正式脚本二进制（跳过下划线前缀目录）
+	@mkdir -p $(BIN_DIR)
 	@for d in scripts/*/; do \
 		[ -f "$$d/main.go" ] || continue; \
 		name=$$(basename "$$d"); \
 		[[ "$$name" == _* ]] && continue; \
 		echo "==> building $$name"; \
-		go build -tags plugin -buildmode=plugin -o "$(SO_DIR)/$$name.so" "./$$d"; \
+		go build -o "$(BIN_DIR)/$$name" "./$$d"; \
 	done
-	@echo "✓ 编译完成: $(SO_DIR)/"
+	@echo "✓ 编译完成: $(BIN_DIR)/"
 
-upload-so: ## 编译 + 上传到 COS + 通知 Master（需先设置 COS_SECRET_ID/COS_SECRET_KEY 环境变量）
-	./scripts/upload-so.sh
+upload-bin: ## 编译 + 上传到 COS + 通知 Master（需 COS_SECRET_ID/COS_SECRET_KEY）
+	./scripts/upload-bin.sh
 
-publish-so: upload-so ## 同 upload-so（别名）
+publish-bin: upload-bin ## 同 upload-bin（别名）
 
-local-so: build-so ## 仅编译不上传（本地调试用，DB artifactUrl 设为本地路径）
+local-bin: build-bin ## 仅编译不上传（本地调试用，DB artifactUrl 设为本地路径）
 	@echo ""
-	@echo "本地 .so 路径: $(CURDIR)/$(SO_DIR)/"
+	@echo "本地二进制路径: $(CURDIR)/$(BIN_DIR)/"
 	@echo "DB artifactUrl 示例:"
-	@for f in $(SO_DIR)/*.so; do \
+	@for f in $(BIN_DIR)/*; do \
 		[ -f "$$f" ] || continue; \
-		name=$$(basename "$$f" .so); \
-		echo "  $$name → $(CURDIR)/$(SO_DIR)/$$name.so"; \
+		[[ "$$f" == *.sh ]] && continue; \
+		name=$$(basename "$$f"); \
+		echo "  $$name → $(CURDIR)/$(BIN_DIR)/$$name"; \
 	done
 
 ##@ 环境变量配置
@@ -63,8 +64,8 @@ help: ## 显示帮助信息
 	/^##@/ { printf "\n%s\n", substr($$0, 5) }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "环境变量:"
-	@echo "  COS_SECRET_ID   腾讯云 SecretId（首次设置，写入 ~/.bashrc）"
-	@echo "  COS_SECRET_KEY  腾讯云 SecretKey（首次设置，写入 ~/.bashrc）"
+	@echo "  COS_SECRET_ID   腾讯云 SecretId"
+	@echo "  COS_SECRET_KEY  腾讯云 SecretKey"
 	@echo "  COS_BUCKET      COS 桶名（默认 jarvan4-1257748620）"
 	@echo "  COS_REGION      COS 地域（默认 ap-guangzhou）"
 	@echo "  MASTER_URL      Master 地址（默认 http://localhost:8090）"

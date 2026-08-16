@@ -1,15 +1,17 @@
-//go:build plugin
-
 // Package main 是一个故意 panic 的测试脚本,用于验证 Worker 引擎的 recover 机制。
 // W-20 测试用例:验证脚本 panic 不会导致 worker 进程崩溃。
 package main
 
 import (
+	"github.com/A0dongq1N/jarvan4-platform/scriptrun"
 	"github.com/A0dongq1N/jarvan4-platform/spec"
 )
 
-// Script 导出符号(Worker 通过 plugin.Lookup("Script") 获取)
-var Script spec.ScriptEntry = &PanicScript{}
+func main() {
+	scriptrun.Main(&PanicScript{})
+}
+
+
 
 // PanicScript 故意在 Default 中 panic
 type PanicScript struct{}
