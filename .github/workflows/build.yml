@@ -2,12 +2,11 @@ name: Build & Publish Scripts
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - '**'
     paths:
-      - 'scripts/**'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/build.yml'
+      - '**'
+ 
   workflow_dispatch:
     inputs:
       reason:
@@ -26,6 +25,7 @@ jobs:
       COS_REGION: ${{ secrets.COS_REGION }}
       GOPRIVATE: "github.com/A0dongq1N/*"
       GOPROXY: "direct"
+      # GIT_TERMINAL_PROMPT=0 禁用 Git clone/pull/push 时的命令行认证交互（遇到认证失败直接报错，不弹交互输密码）
       GIT_TERMINAL_PROMPT: "0"
       GOPATH: "/root/go"
       GOMODCACHE: "/root/go/pkg/mod"
@@ -33,8 +33,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 2
 
       - name: Configure git for private modules
         run: |
@@ -59,53 +57,17 @@ jobs:
       - name: Vet
         run: go vet ./...
 
-      - name: Build all scripts (sanity check)
+      - name: Build all scripts
         run: |
-          mkdir -p /tmp/jarvan4-script-build
+          mkdir -p dist
+          COMMIT_HASH="${GITHUB_SHA}"
           for d in scripts/*/; do
             [ -f "$d/main.go" ] || continue
             name=$(basename "$d")
             [[ "$name" == _* ]] && continue
-            echo "==> building $name"
-            go build -o "/tmp/jarvan4-script-build/${name}" "./$d"
-          done
-
-      - name: Detect changed scripts
-        id: changed
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            CHANGED=$(ls scripts/)
-          else
-            DEPS_CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'go.mod' 'go.sum' | head -1)
-            if [ -n "$DEPS_CHANGED" ]; then
-              echo "go.mod/go.sum changed, full rebuild"
-              CHANGED=$(ls scripts/)
-            else
-              CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'scripts/**' \
-                | grep '^scripts/' \
-                | cut -d'/' -f2 \
-                | sort -u)
-            fi
-          fi
-          CHANGED=$(printf '%s\n' "$CHANGED" | grep -v '^$' | grep -v '^_' | tr '\n' ' ' | xargs)
-          echo "scripts=$CHANGED" >> "$GITHUB_OUTPUT"
-          echo "Changed scripts: $CHANGED"
-
-      - name: Build script binaries
-        run: |
-          mkdir -p dist
-          COMMIT_HASH="${GITHUB_SHA}"
-          CHANGED_SCRIPTS="${{ steps.changed.outputs.scripts }}"
-
-          for name in $CHANGED_SCRIPTS; do
-            dir="scripts/${name}"
-            if [ ! -d "$dir" ]; then
-              echo "⚠️  目录 $dir 不存在，跳过"
-              continue
-            fi
             echo "🔨 编译 $name ..."
             mkdir -p "dist/${name}"
-            go build -o "dist/${name}/${COMMIT_HASH}" "./${dir}"
+            go build -o "dist/${name}/${COMMIT_HASH}" "./$d"
             echo "✓ dist/${name}/${COMMIT_HASH}"
           done
 
@@ -114,7 +76,7 @@ jobs:
           COMMIT_HASH="${GITHUB_SHA}"
           COMMIT_MSG=$(git log -1 --pretty=format:'%s')
           AUTHOR=$(git log -1 --pretty=format:'%an')
-          CHANGED_SCRIPTS="${{ steps.changed.outputs.scripts }}"
+          BRANCH="${GITHUB_REF_NAME}"
 
           pip install coscmd -q
           coscmd config \
@@ -123,30 +85,47 @@ jobs:
             -b "$COS_BUCKET" \
             -r "$COS_REGION"
 
-          for name in $CHANGED_SCRIPTS; do
+          for d in scripts/*/; do
+            [ -f "$d/main.go" ] || continue
+            name=$(basename "$d")
+            [[ "$name" == _* ]] && continue
             BIN_FILE="dist/${name}/${COMMIT_HASH}"
             if [ ! -f "$BIN_FILE" ]; then
               echo "⚠️  $BIN_FILE 不存在，跳过上传"
               continue
             fi
 
-            COS_KEY_VERSIONED="scripts/${name}/${COMMIT_HASH}"
             COS_KEY_LATEST="scripts/${name}/${name}"
-            echo "⬆️  上传 $BIN_FILE → cos://${COS_BUCKET}/${COS_KEY_VERSIONED}"
-            coscmd upload "$BIN_FILE" "$COS_KEY_VERSIONED"
-            echo "⬆️  上传 $BIN_FILE → cos://${COS_BUCKET}/${COS_KEY_LATEST} (latest)"
-            coscmd upload "$BIN_FILE" "$COS_KEY_LATEST"
+            PREV="/tmp/prev-${name}"
+            rm -f "$PREV"
+            # 和已发布的正式包逐字节比较。相同则不重复上传，发布记录指向已有对象。
+            ARTIFACT_URL=""
+            if coscmd download "$COS_KEY_LATEST" "$PREV" && cmp -s "$PREV" "$BIN_FILE"; then
+              echo "✓ $name 二进制未变化，跳过上传"
+              ARTIFACT_URL="$COS_KEY_LATEST"
+            else
+              COS_KEY_VERSIONED="scripts/${name}/${COMMIT_HASH}"
+              echo "⬆️  上传 $BIN_FILE → cos://${COS_BUCKET}/${COS_KEY_VERSIONED}"
+              coscmd upload "$BIN_FILE" "$COS_KEY_VERSIONED"
+              ARTIFACT_URL="$COS_KEY_VERSIONED"
+              if [ "$BRANCH" = "main" ]; then
+                echo "⬆️  上传 $BIN_FILE → cos://${COS_BUCKET}/${COS_KEY_LATEST} (release)"
+                coscmd upload "$BIN_FILE" "$COS_KEY_LATEST"
+                ARTIFACT_URL="$COS_KEY_LATEST"
+              fi
+            fi
 
-            echo "📡 通知 Master: name=$name commitHash=${COMMIT_HASH:0:12}"
+            echo "📡 通知 Master: name=$name branch=$BRANCH commitHash=${COMMIT_HASH:0:12}"
             HTTP_CODE=$(curl -s -o /tmp/publish_resp.json -w "%{http_code}" \
               -X POST "${MASTER_URL}/api/internal/scripts/publish" \
               -H "Content-Type: application/json" \
               -d "{
                 \"name\": \"${name}\",
                 \"commitHash\": \"${COMMIT_HASH}\",
-                \"artifactUrl\": \"${COS_KEY_LATEST}\",
+                \"artifactUrl\": \"${ARTIFACT_URL}\",
                 \"commitMsg\": \"${COMMIT_MSG}\",
                 \"author\": \"${AUTHOR}\",
+                \"branch\": \"${BRANCH}\",
                 \"sourceRepo\": \"${{ github.server_url }}/${{ github.repository }}\",
                 \"sourcePath\": \"scripts/${name}/main.go\"
               }")

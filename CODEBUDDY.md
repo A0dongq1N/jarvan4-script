@@ -10,7 +10,7 @@
 
 1. **`package main`**，`func main() { scriptrun.Main(&XxxScript{}) }`
 2. **实现** `spec.ScriptEntry`（Setup / Default / Teardown）
-3. **只允许 import**：标准库 + `jarvan4-platform/spec` + `jarvan4-platform/scriptrun` + 本仓库 `sdk/`
+3. **只允许 import**：标准库 + `jarvan4-platform/spec` + `jarvan4-platform/scriptrun` + 本仓库 `client/...` 与 `util/...`
 4. **禁止**：启动独立 goroutine、`os.Exit()`、直接读写文件
 5. **脚本名**（子目录名）一旦确定不可修改（与平台 `script.name` 绑定）
 
@@ -40,7 +40,7 @@ type ScriptEntry interface {
 | `ctx.Recorder` | 协议无关指标记录器（通常无需直接使用） |
 | `ctx.SetupData` | Setup 返回值（放共享连接池 / HTTP Client） |
 
-协议客户端不在 Context 上：HTTP 用 `sdk/http`，Redis 用 `sdk/redis`，均在 Setup 创建、经 SetupData 共享。
+协议客户端不在 Context 上：HTTP 用 `client/http`，Redis 用 `client/redis`，均在 Setup 创建、经 SetupData 共享。小工具见 `util` 包（如 `util.String`）。
 
 ### 脚本示例
 
@@ -51,7 +51,7 @@ import (
     "fmt"
     "github.com/A0dongq1N/jarvan4-platform/scriptrun"
     "github.com/A0dongq1N/jarvan4-platform/spec"
-    sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
+    sdkhttp "github.com/A0dongq1N/jarvan4-script/client/http"
 )
 
 func main() { scriptrun.Main(&MyScript{}) }
@@ -110,26 +110,32 @@ source ~/.bashrc
 
 Makefile 位置：`jarvan4-script/Makefile`。
 
-本地开发依赖根目录 `go.work`（含 `jarvan4-platform` 与 `jarvan4-platform/pb`）。CI clone platform 并用 replace（含 pb 子模块）。旧 `make *-so` 仍是兼容别名。
+本地开发依赖根目录 `go.work`（含 `jarvan4-platform` 与 `jarvan4-platform/pb`）。CI clone platform 并用 replace（含 pb 子模块）。
 
 ## 目录结构
 
 ```
 jarvan4-script/
 ├── scripts/
-│   ├── http_demo/        # HTTP GET 压测示例
+│   ├── http_get_echo/        # GET /get（echo query）
 │   │   └── main.go
-│   ├── http_login/       # 登录 + 查询流程示例
+│   ├── http_auth_login_me/   # POST login + GET /api/auth/me
 │   │   └── main.go
-│   ├── redis_demo/       # Redis SET + GET 读写压测
+│   ├── http_get_error_rate/  # GET /api/error，可调 ERROR_RATE（熔断联调）
+│   │   └── main.go
+│   ├── redis_set_get/        # Redis SET + GET 读写校验
 │   │   └── main.go
 │   ├── _panic_test/      # panic 测试脚本（下划线前缀不发布）
 │   └── _target/          # 本地测试目标服务
+├── client/               # 协议客户端（http、redis、…）
+├── util/                 # 工具（random.go）
 ├── go.mod
 └── README.md
 ```
 
-### redis_demo 环境变量
+**命名**：`scripts/` 下目录名 = 发布 `name` = 编译二进制名，格式 `{组件}_{场景}`（如 `http_get_echo`）；勿用 `demo`/`test`，仅本地 fixture 用 `_` 前缀。
+
+### redis_set_get 环境变量
 
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
@@ -154,9 +160,9 @@ git push → CI 检测变更脚本 → go vet → go build（普通二进制）
 POST /api/internal/scripts/publish
 {
   "projectId": "...",
-  "name": "http_demo",
+  "name": "http_get_echo",
   "commitHash": "abc123",
-  "artifactUrl": "scripts/http_demo/http_demo",
+  "artifactUrl": "scripts/http_get_echo/http_get_echo",
   "commitMsg": "...",
   "author": "..."
 }

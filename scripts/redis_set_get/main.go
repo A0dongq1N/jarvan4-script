@@ -15,18 +15,18 @@ import (
 
 	"github.com/A0dongq1N/jarvan4-platform/scriptrun"
 	"github.com/A0dongq1N/jarvan4-platform/spec"
-	sdkredis "github.com/A0dongq1N/jarvan4-script/sdk/redis"
-	"github.com/A0dongq1N/jarvan4-script/sdk/random"
+	sdkredis "github.com/A0dongq1N/jarvan4-script/client/redis"
+	"github.com/A0dongq1N/jarvan4-script/util"
 )
 
 func main() {
-	scriptrun.Main(&RedisDemoScript{})
+	scriptrun.Main(&RedisSetGetScript{})
 }
 
 
 
 
-type RedisDemoScript struct{}
+type RedisSetGetScript struct{}
 
 type setupData struct {
 	Pool      *sdkredis.Pool
@@ -35,7 +35,7 @@ type setupData struct {
 	ValueSize int
 }
 
-func (s *RedisDemoScript) Setup(ctx *spec.RunContext) (interface{}, error) {
+func (s *RedisSetGetScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 	addr := ctx.Vars.Env("REDIS_ADDR")
 	if addr == "" {
 		return nil, fmt.Errorf("REDIS_ADDR 环境变量未配置")
@@ -82,7 +82,7 @@ func (s *RedisDemoScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 	}, nil
 }
 
-func (s *RedisDemoScript) Default(ctx *spec.RunContext) error {
+func (s *RedisSetGetScript) Default(ctx *spec.RunContext) error {
 	sd := ctx.SetupData.(*setupData)
 	// VUId 只在单 Worker 内从 1 递增；多 Worker 必须带上 WorkerID，否则会写同一 key。
 	workerID := ctx.WorkerID
@@ -106,7 +106,7 @@ func (s *RedisDemoScript) Default(ctx *spec.RunContext) error {
 	return nil
 }
 
-func (s *RedisDemoScript) Teardown(ctx *spec.RunContext, data interface{}) error {
+func (s *RedisSetGetScript) Teardown(ctx *spec.RunContext, data interface{}) error {
 	if data == nil {
 		return nil
 	}
@@ -139,6 +139,6 @@ func buildValue(size int, vuID, iteration int) string {
 	if len(suffix) >= size {
 		return suffix[:size]
 	}
-	padding := random.String(size - len(suffix))
+	padding := util.String(size - len(suffix))
 	return padding + suffix
 }

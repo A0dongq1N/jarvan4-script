@@ -1,5 +1,5 @@
-// 压测脚本：HTTP GET 接口压测示例
-// 目标接口：httpbin.org/get（公开测试接口，无需鉴权）
+// 压测脚本：HTTP GET /get（echo query）
+// 环境变量：BASE_URL（必填），如 http://127.0.0.1:8080 或 https://httpbin.org
 package main
 
 import (
@@ -7,21 +7,21 @@ import (
 
 	"github.com/A0dongq1N/jarvan4-platform/scriptrun"
 	"github.com/A0dongq1N/jarvan4-platform/spec"
-	sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
+	sdkhttp "github.com/A0dongq1N/jarvan4-script/client/http"
 )
 
 func main() {
-	scriptrun.Main(&HttpDemoScript{})
+	scriptrun.Main(&HttpGetEchoScript{})
 }
 
-type HttpDemoScript struct{}
+type HttpGetEchoScript struct{}
 
 type setupData struct {
 	HTTP    *sdkhttp.Client
 	BaseURL string
 }
 
-func (s *HttpDemoScript) Setup(ctx *spec.RunContext) (interface{}, error) {
+func (s *HttpGetEchoScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 	baseURL := ctx.Vars.Env("BASE_URL")
 	if baseURL == "" {
 		return nil, fmt.Errorf("BASE_URL 环境变量未配置")
@@ -33,7 +33,7 @@ func (s *HttpDemoScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 	}, nil
 }
 
-func (s *HttpDemoScript) Default(ctx *spec.RunContext) error {
+func (s *HttpGetEchoScript) Default(ctx *spec.RunContext) error {
 	sd := ctx.SetupData.(*setupData)
 
 	res, err := sd.HTTP.Get(ctx, sd.BaseURL+"/get", spec.WithQuery("vu", fmt.Sprintf("%d", ctx.VUId)))
@@ -45,7 +45,7 @@ func (s *HttpDemoScript) Default(ctx *spec.RunContext) error {
 	return nil
 }
 
-func (s *HttpDemoScript) Teardown(ctx *spec.RunContext, data interface{}) error {
+func (s *HttpGetEchoScript) Teardown(ctx *spec.RunContext, data interface{}) error {
 	if sd, ok := data.(*setupData); ok && sd.HTTP != nil {
 		sd.HTTP.Close()
 	}

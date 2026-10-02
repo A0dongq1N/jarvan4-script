@@ -11,21 +11,21 @@ import (
 
 	"github.com/A0dongq1N/jarvan4-platform/scriptrun"
 	"github.com/A0dongq1N/jarvan4-platform/spec"
-	sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
+	sdkhttp "github.com/A0dongq1N/jarvan4-script/client/http"
 )
 
 func main() {
-	scriptrun.Main(&HttpErrorScript{})
+	scriptrun.Main(&HttpGetErrorRateScript{})
 }
 
-type HttpErrorScript struct{}
+type HttpGetErrorRateScript struct{}
 
 type setupData struct {
 	HTTP    *sdkhttp.Client
 	BaseURL string
 }
 
-func (s *HttpErrorScript) Setup(ctx *spec.RunContext) (interface{}, error) {
+func (s *HttpGetErrorRateScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 	baseURL := ctx.Vars.Env("BASE_URL")
 	if baseURL == "" {
 		return nil, fmt.Errorf("BASE_URL 环境变量未配置")
@@ -38,7 +38,7 @@ func (s *HttpErrorScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 	}, nil
 }
 
-func (s *HttpErrorScript) Default(ctx *spec.RunContext) error {
+func (s *HttpGetErrorRateScript) Default(ctx *spec.RunContext) error {
 	sd := ctx.SetupData.(*setupData)
 	rate := parseErrorRate(ctx.Vars.Env("ERROR_RATE"))
 
@@ -51,7 +51,7 @@ func (s *HttpErrorScript) Default(ctx *spec.RunContext) error {
 	return nil
 }
 
-func (s *HttpErrorScript) Teardown(ctx *spec.RunContext, data interface{}) error {
+func (s *HttpGetErrorRateScript) Teardown(ctx *spec.RunContext, data interface{}) error {
 	if sd, ok := data.(*setupData); ok && sd.HTTP != nil {
 		sd.HTTP.Close()
 	}
