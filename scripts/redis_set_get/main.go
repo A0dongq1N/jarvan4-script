@@ -1,11 +1,12 @@
 // 压测脚本：Redis SET + GET 读写链路
 // 环境变量：
-//   REDIS_ADDR     Redis 地址，如 127.0.0.1:6379（必填）
-//   REDIS_PASSWORD 认证密码（可选）
-//   REDIS_DB       数据库编号（可选，默认 0）
-//   KEY_PREFIX     key 前缀（可选，默认 jarvan4:stress:）
-//   TTL_SECONDS    SET 过期秒数（可选，默认 300）
-//   VALUE_SIZE     value 字节长度（可选，默认 64）
+//
+//	REDIS_ADDR     Redis 地址，如 127.0.0.1:6379（必填）
+//	REDIS_PASSWORD 认证密码（可选）
+//	REDIS_DB       数据库编号（可选，默认 0）
+//	KEY_PREFIX     key 前缀（可选，默认 jarvan4:stress:）
+//	TTL_SECONDS    SET 过期秒数（可选，默认 300）
+//	VALUE_SIZE     value 字节长度（可选，默认 64）
 package main
 
 import (
@@ -22,9 +23,6 @@ import (
 func main() {
 	scriptrun.Main(&RedisSetGetScript{})
 }
-
-
-
 
 type RedisSetGetScript struct{}
 
