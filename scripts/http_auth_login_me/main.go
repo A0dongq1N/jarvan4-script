@@ -1,33 +1,31 @@
-//go:build plugin
-
 // 压测脚本：登录 + 查询接口链路
 // 环境变量：
-//   BASE_URL   被压测服务地址，如 http://staging.example.com
-//   USERNAME   登录账号（可选，默认 test_user_{VUId}）
-//   PASSWORD   登录密码（可选，默认 password123）
+//
+//	BASE_URL   被压测服务地址，如 http://staging.example.com
+//	USERNAME   登录账号（可选，默认 test_user_{VUId}）
+//	PASSWORD   登录密码（可选，默认 password123）
 package main
 
 import (
 	"fmt"
 
+	"github.com/A0dongq1N/jarvan4-platform/scriptrun"
 	"github.com/A0dongq1N/jarvan4-platform/spec"
-	sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
+	sdkhttp "github.com/A0dongq1N/jarvan4-script/client/http"
 )
 
-// Script 导出符号，Worker 通过 plugin.Lookup("Script") 获取。
-var Script spec.ScriptEntry = &HttpLoginScript{}
+func main() {
+	scriptrun.Main(&HttpAuthLoginMeScript{})
+}
 
-// PluginABI 插件 ABI 版本，须与 Worker 内 spec.PluginABIVersion 一致
-var PluginABI = spec.PluginABIVersion
-
-type HttpLoginScript struct{}
+type HttpAuthLoginMeScript struct{}
 
 type setupData struct {
 	HTTP    *sdkhttp.Client
 	BaseURL string
 }
 
-func (s *HttpLoginScript) Setup(ctx *spec.RunContext) (interface{}, error) {
+func (s *HttpAuthLoginMeScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 	baseURL := ctx.Vars.Env("BASE_URL")
 	if baseURL == "" {
 		return nil, fmt.Errorf("BASE_URL 未配置")
@@ -39,7 +37,7 @@ func (s *HttpLoginScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 	}, nil
 }
 
-func (s *HttpLoginScript) Default(ctx *spec.RunContext) error {
+func (s *HttpAuthLoginMeScript) Default(ctx *spec.RunContext) error {
 	sd := ctx.SetupData.(*setupData)
 
 	// 首次迭代登录，token 复用
@@ -50,7 +48,7 @@ func (s *HttpLoginScript) Default(ctx *spec.RunContext) error {
 		}
 		password := ctx.Vars.Env("PASSWORD")
 		if password == "" {
-			password = "password123"
+			return fmt.Errorf("PASSWORD 未配置,请配置环境变量 PASSWORD")
 		}
 
 		resp, err := sd.HTTP.Post(
@@ -98,7 +96,7 @@ func (s *HttpLoginScript) Default(ctx *spec.RunContext) error {
 	return nil
 }
 
-func (s *HttpLoginScript) Teardown(ctx *spec.RunContext, data interface{}) error {
+func (s *HttpAuthLoginMeScript) Teardown(ctx *spec.RunContext, data interface{}) error {
 	if sd, ok := data.(*setupData); ok && sd.HTTP != nil {
 		sd.HTTP.Close()
 	}

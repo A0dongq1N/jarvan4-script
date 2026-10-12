@@ -1,5 +1,5 @@
-// Package random 提供压测脚本使用的随机数据生成工具。
-package random
+// Package util 压测脚本通用小工具（随机数等）。
+package util
 
 import (
 	"math/rand"

@@ -1,13 +1,12 @@
-//go:build plugin
-
 // 压测脚本：Redis SET + GET 读写链路
 // 环境变量：
-//   REDIS_ADDR     Redis 地址，如 127.0.0.1:6379（必填）
-//   REDIS_PASSWORD 认证密码（可选）
-//   REDIS_DB       数据库编号（可选，默认 0）
-//   KEY_PREFIX     key 前缀（可选，默认 jarvan4:stress:）
-//   TTL_SECONDS    SET 过期秒数（可选，默认 300）
-//   VALUE_SIZE     value 字节长度（可选，默认 64）
+//
+//	REDIS_ADDR     Redis 地址，如 127.0.0.1:6379（必填）
+//	REDIS_PASSWORD 认证密码（可选）
+//	REDIS_DB       数据库编号（可选，默认 0）
+//	KEY_PREFIX     key 前缀（可选，默认 jarvan4:stress:）
+//	TTL_SECONDS    SET 过期秒数（可选，默认 300）
+//	VALUE_SIZE     value 字节长度（可选，默认 64）
 package main
 
 import (
@@ -15,18 +14,17 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/A0dongq1N/jarvan4-platform/scriptrun"
 	"github.com/A0dongq1N/jarvan4-platform/spec"
-	sdkredis "github.com/A0dongq1N/jarvan4-script/sdk/redis"
-	"github.com/A0dongq1N/jarvan4-script/sdk/random"
+	sdkredis "github.com/A0dongq1N/jarvan4-script/client/redis"
+	"github.com/A0dongq1N/jarvan4-script/util"
 )
 
-// Script 导出符号，Worker 通过 plugin.Lookup("Script") 获取。
-var Script spec.ScriptEntry = &RedisDemoScript{}
+func main() {
+	scriptrun.Main(&RedisSetGetScript{})
+}
 
-// PluginABI 插件 ABI 版本，须与 Worker 内 spec.PluginABIVersion 一致。
-var PluginABI = spec.PluginABIVersion
-
-type RedisDemoScript struct{}
+type RedisSetGetScript struct{}
 
 type setupData struct {
 	Pool      *sdkredis.Pool
@@ -35,7 +33,7 @@ type setupData struct {
 	ValueSize int
 }
 
-func (s *RedisDemoScript) Setup(ctx *spec.RunContext) (interface{}, error) {
+func (s *RedisSetGetScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 	addr := ctx.Vars.Env("REDIS_ADDR")
 	if addr == "" {
 		return nil, fmt.Errorf("REDIS_ADDR 环境变量未配置")
@@ -82,7 +80,7 @@ func (s *RedisDemoScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 	}, nil
 }
 
-func (s *RedisDemoScript) Default(ctx *spec.RunContext) error {
+func (s *RedisSetGetScript) Default(ctx *spec.RunContext) error {
 	sd := ctx.SetupData.(*setupData)
 	// VUId 只在单 Worker 内从 1 递增；多 Worker 必须带上 WorkerID，否则会写同一 key。
 	workerID := ctx.WorkerID
@@ -106,7 +104,7 @@ func (s *RedisDemoScript) Default(ctx *spec.RunContext) error {
 	return nil
 }
 
-func (s *RedisDemoScript) Teardown(ctx *spec.RunContext, data interface{}) error {
+func (s *RedisSetGetScript) Teardown(ctx *spec.RunContext, data interface{}) error {
 	if data == nil {
 		return nil
 	}
@@ -139,6 +137,6 @@ func buildValue(size int, vuID, iteration int) string {
 	if len(suffix) >= size {
 		return suffix[:size]
 	}
-	padding := random.String(size - len(suffix))
+	padding := util.String(size - len(suffix))
 	return padding + suffix
 }

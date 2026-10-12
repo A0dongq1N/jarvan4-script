@@ -1,32 +1,31 @@
-//go:build plugin
-
 // 压测脚本：可控错误率接口，用于验证熔断保护（全局 / 接口级规则）
 // 环境变量：
-//   BASE_URL   被压测服务地址，需支持 GET /api/error（如 jarvan4-script/scripts/_target）
-//   ERROR_RATE 错误率 0~1，默认 1.0（100% 失败，便于快速触发熔断）
+//
+//	BASE_URL   被压测服务地址，需支持 GET /api/error（如 jarvan4-script/scripts/_target）
+//	ERROR_RATE 错误率 0~1，默认 1.0（100% 失败，便于快速触发熔断）
 package main
 
 import (
 	"fmt"
 	"strconv"
 
+	"github.com/A0dongq1N/jarvan4-platform/scriptrun"
 	"github.com/A0dongq1N/jarvan4-platform/spec"
-	sdkhttp "github.com/A0dongq1N/jarvan4-script/sdk/http"
+	sdkhttp "github.com/A0dongq1N/jarvan4-script/client/http"
 )
 
-var Script spec.ScriptEntry = &HttpErrorScript{}
+func main() {
+	scriptrun.Main(&HttpGetErrorRateScript{})
+}
 
-// PluginABI 插件 ABI 版本，须与 Worker 内 spec.PluginABIVersion 一致
-var PluginABI = spec.PluginABIVersion
-
-type HttpErrorScript struct{}
+type HttpGetErrorRateScript struct{}
 
 type setupData struct {
 	HTTP    *sdkhttp.Client
 	BaseURL string
 }
 
-func (s *HttpErrorScript) Setup(ctx *spec.RunContext) (interface{}, error) {
+func (s *HttpGetErrorRateScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 	baseURL := ctx.Vars.Env("BASE_URL")
 	if baseURL == "" {
 		return nil, fmt.Errorf("BASE_URL 环境变量未配置")
@@ -39,7 +38,7 @@ func (s *HttpErrorScript) Setup(ctx *spec.RunContext) (interface{}, error) {
 	}, nil
 }
 
-func (s *HttpErrorScript) Default(ctx *spec.RunContext) error {
+func (s *HttpGetErrorRateScript) Default(ctx *spec.RunContext) error {
 	sd := ctx.SetupData.(*setupData)
 	rate := parseErrorRate(ctx.Vars.Env("ERROR_RATE"))
 
@@ -52,7 +51,7 @@ func (s *HttpErrorScript) Default(ctx *spec.RunContext) error {
 	return nil
 }
 
-func (s *HttpErrorScript) Teardown(ctx *spec.RunContext, data interface{}) error {
+func (s *HttpGetErrorRateScript) Teardown(ctx *spec.RunContext, data interface{}) error {
 	if sd, ok := data.(*setupData); ok && sd.HTTP != nil {
 		sd.HTTP.Close()
 	}

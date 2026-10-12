@@ -14,5 +14,5 @@
 | 文档 | 内容 |
 |------|------|
 | [CODEBUDDY.md](CODEBUDDY.md) | 本子项目完整规范 |
-| [../jarvan4-platform/doc/04-脚本体系设计.md](../jarvan4-platform/doc/04-脚本体系设计.md) | SDK 与 CI |
+| [../jarvan4-platform/doc/design/04-脚本体系.md](../jarvan4-platform/doc/design/04-脚本体系.md) | 脚本契约、运行时与 CI |
 | [../CURSOR.md](../CURSOR.md) | 仓库级 Cursor 总览 |

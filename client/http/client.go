@@ -4,7 +4,7 @@
 // 典型用法：
 //
 //	// Setup 中创建客户端（所有 VU 共享连接池）
-//	client := sdkhttp.New(ctx)
+//	client := http.New(ctx) // import sdkhttp "…/client/http"
 //
 //	// Default 中发起请求（必须传入当前迭代的 RunContext）
 //	res, err := client.Get(ctx, baseURL+"/api/health", spec.WithName("/api/health"))
