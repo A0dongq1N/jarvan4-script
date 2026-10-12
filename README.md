@@ -8,7 +8,7 @@
 module github.com/A0dongq1N/jarvan4-script
 ```
 
-依赖 `github.com/A0dongq1N/jarvan4-platform`（契约在 `spec/`，运行时入口在 `scriptrun/`）。本地开发由仓库根目录 `go.work` 指向 `../jarvan4-platform` 与 `../jarvan4-platform/pb`，不必在本模块 `go.mod` 里写 `replace`。协议客户端在本仓库 `client/`（如 `client/http`、`client/redis`），工具在 `util/`。
+依赖 `github.com/A0dongq1N/jarvan4-platform`（契约在 `spec/`，运行时入口在 `scriptrun/`）。本地开发由三个子项目共同工作区根目录的 `go.work` 引用 `./jarvan4-platform`、`./jarvan4-platform/pb` 和 `./jarvan4-script`，不必在本模块 `go.mod` 里写 `replace`。协议客户端在本仓库 `client/`（如 `client/http`、`client/redis`），工具在 `util/`。
 
 ## 目录结构
 
@@ -24,7 +24,6 @@ jarvan4-script/
 │   └── _target/             # 本地联调目标服务
 ├── client/                  # 协议客户端（http / redis / …，自动 ctx.Recorder 上报）
 ├── util/                    # 脚本工具（random.go：Int/String 等）
-├── scripts/upload-bin.sh    # 本地编译上传
 ├── Makefile
 ├── go.mod
 ├── .github/workflows/
@@ -105,14 +104,13 @@ func (s *MyScript) Teardown(ctx *spec.RunContext, data interface{}) error {
 - **断言** 用 `ctx.Check.That(res).Status(200).BodyContains("...")`，失败计入 fail
 - **指标自动记录**：协议错误会自动计入 fail，**不要** 手动累加请求数
 
-### 3. 本地编译 / 上传
+### 3. 本地编译
 
 ```bash
 make build-bin    # 编译所有正式脚本二进制 → dist/
-make local-bin    # 同 build-bin，并打印本地路径（调试用）
-make upload-bin   # 编译 + 上传 COS + 通知 Master（需 COS 密钥）
-make env-check    # 检查 COS_SECRET_ID / COS_SECRET_KEY
 ```
+
+上传和通知 Master 只走 CI：推送分支得到预览版，推送 `main` 得到正式版。
 
 本地联调：
 
@@ -121,7 +119,7 @@ make env-check    # 检查 COS_SECRET_ID / COS_SECRET_KEY
 cd scripts/_target && go run . &
 
 # 2. 编译脚本
-make local-bin
+make build-bin
 
 # 3. 在 Master 管理台创建任务，BASE_URL 指向 http://localhost:8888
 #    Worker 会下载/exec 二进制并对 _target 发压
@@ -182,19 +180,19 @@ CLI（Worker 调用，脚本作者一般不用手敲）：
 
 ## 测试策略
 
-本项目**不写单元测试、不用 mock**（见 jarvan4-platform/CODEBUDDY.md「测试策略」铁律）。
+本项目**不写单元测试、不用 mock**（见 jarvan4-platform/CODEBUDDY.md「测试铁律」）。
 
 脚本正确性通过**真实发压**验证：
 
 - **CI**：`go vet` + 编译所有正式脚本
-- **本地**：启 `_target`，`make local-bin`，在 Master 创建短时任务由 Worker exec 执行
+- **本地**：启 `_target`，`make build-bin`，在 Master 创建短时任务由 Worker exec 执行
 - **生产**：Worker 下载二进制，对真实被压测服务发压
 
 若脚本有 bug：
 
 1. 启本地 `_target` 复现
 2. 创建短时任务（VU=1、几秒），看 Worker / 脚本进程日志与看板
-3. 修复后 `make upload-bin`（或 push 走 CI）再跑一遍
+3. 修复后 push，由 CI 发布后再跑一遍
 
 **禁止** 写 mock HTTP server 测脚本。
 
@@ -206,7 +204,7 @@ A: ❌ 不能。子目录名与 Master `script.name` 强绑定；改名会被当
 
 ### Q: 编译产物提交到 git 吗？
 
-A: ❌ 不提交。CI / `make upload-bin` 上传到 COS，Worker 按 commitHash 拉取缓存。
+A: ❌ 不提交。CI 上传到 COS，Worker 按 commitHash 拉取缓存。
 
 ### Q: 还需要 `//go:build plugin` / `var Script` / `PluginABI` 吗？
 
@@ -218,7 +216,7 @@ A: 推送脚本仓（或在 GitHub Actions 用 `workflow_dispatch` 全量重编�
 
 ### Q: 如何调试脚本？
 
-A: `make local-bin` 后通过 Master 建短时任务，看 Worker 日志与管理台实时看板里的 panic / 错误。也可手动：
+A: `make build-bin` 后通过 Master 建短时任务，看 Worker 日志与管理台实时看板里的 panic / 错误。也可手动：
 
 ```bash
 ./dist/http_get_echo --self-check
@@ -248,4 +246,5 @@ if err != nil {
 
 - [jarvan4-platform](../jarvan4-platform) — Master + Worker + `spec` / `scriptrun`
 - [jarvan4-web](../jarvan4-web) — 前端管理台
-- 运行时说明：[doc/06-脚本二进制运行时方案.md](../jarvan4-platform/doc/06-脚本二进制运行时方案.md)
+- 脚本体系：[doc/design/04-脚本体系.md](../jarvan4-platform/doc/design/04-脚本体系.md)
+- 独立二进制决策：[ADR-0001](../jarvan4-platform/doc/adr/0001-脚本使用独立二进制.md)

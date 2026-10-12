@@ -89,28 +89,20 @@ func (s *MyScript) Teardown(ctx *spec.RunContext, data interface{}) error {
 }
 ```
 
-## 编译 & 上传
+## 编译
 
 **统一用 Makefile target，不要手敲 go build 命令：**
 
 ```bash
 make build-bin    # 编译所有正式脚本二进制
-make upload-bin   # 编译 + 上传到 COS + 通知 Master
-make local-bin    # 仅编译不上传
-make env-check
 make help
 ```
 
-首次配置 COS 密钥（写入 ~/.bashrc 永久生效）：
-```bash
-echo 'export COS_SECRET_ID=xxx' >> ~/.bashrc
-echo 'export COS_SECRET_KEY=xxx' >> ~/.bashrc
-source ~/.bashrc
-```
+上传 COS 和通知 Master 由 CI 完成：非 `main` 分支发布为预览版，`main` 发布为正式版。
 
 Makefile 位置：`jarvan4-script/Makefile`。
 
-本地开发依赖根目录 `go.work`（含 `jarvan4-platform` 与 `jarvan4-platform/pb`）。CI clone platform 并用 replace（含 pb 子模块）。
+本地开发依赖三个子项目共同工作区根目录的 `go.work`（引用 `./jarvan4-platform`、`./jarvan4-platform/pb` 和 `./jarvan4-script`）。CI clone platform 并用 replace（含 pb 子模块）。
 
 ## 目录结构
 
